@@ -10,5 +10,5 @@ import java.util.List;
 public interface CategoryRepository extends JpaRepository<Category, String> {
     List<Category> findByType(String type);
     List<Category> findByIsDeletable(Boolean isDeletable);
-    List<Category> findAllByOrderByDisplayOrderAsc();
+    List<Category> findAllByOrderByDisplayOrderAscCreatedAtAsc();
 }

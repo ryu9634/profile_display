@@ -18,6 +18,7 @@ public class PostRequest {
     @Pattern(regexp = "^(PHOTO|ARTICLE|HTML)$", message = "콘텐츠 타입은 PHOTO, ARTICLE, HTML 중 하나여야 합니다")
     private String contentType;
 
+    @NotBlank(message = "제목은 필수입니다")
     private String title;
 
     private String year;

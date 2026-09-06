@@ -21,4 +21,12 @@ public class HomeController {
     public String admin() {
         return "forward:/admin.html";
     }
+
+    /**
+     * 관리자 로그인 페이지 (POST /login 은 Spring Security가 처리)
+     */
+    @GetMapping("/login")
+    public String login() {
+        return "forward:/login.html";
+    }
 }

@@ -3,8 +3,9 @@
 작가 포트폴리오 웹사이트와 관리자 페이지를 함께 제공하는 Spring Boot 애플리케이션입니다.
 작품 이미지·영상·PDF를 카테고리별로 등록하고, 사이트의 색상·폰트·연락처까지 관리자 화면에서 직접 수정할 수 있습니다.
 
-- 공개 사이트: `/` (사이드바 카테고리 + 작품 그리드 + 상세 팝업)
-- 관리자 페이지: `/admin` (HTTP Basic 인증, `ROLE_ADMIN` 필요)
+- 공개 사이트: `/` (메인 소개 + 최근 작품, 사이드바 카테고리, 작품 목록·상세 팝업)
+  - 해시 라우팅: `#/카테고리ID`, `#/카테고리ID/게시글ID` — 새로고침·뒤로가기·링크 공유 가능
+- 관리자 페이지: `/admin` (로그인 페이지 `/login.html`, `ROLE_ADMIN` 필요)
 - 운영 도메인: https://jaehoonjeong.com
 
 ---
@@ -27,23 +28,28 @@
 
 **콘텐츠 관리**
 - 카테고리 CRUD — `PHOTO` / `ARTICLE` / `HTML` 3가지 타입, 기본 카테고리(`main`, `artwork`, `cv`)는 최초 실행 시 자동 생성
-- 게시글 CRUD — 제목·연도·재료·크기·설명·썸네일 및 다중 이미지 관리
-- 미디어 순서 변경, 이미지별 설명/표시 위치(`left`/`right`) 옵션
+- 게시글 CRUD — 제목(필수)·연도·재료·크기·설명 및 다중 이미지 관리 (PHOTO는 미디어 목록의 첫 이미지가 썸네일)
+- 게시글·카테고리 순서 변경(`PUT /reorder`), 미디어 순서 변경, 이미지별 설명/표시 위치 옵션
+- 상세 팝업에서 이전/다음 작품 이동(← → 키), 라이트박스 스와이프, 키보드 접근성
 - YouTube 영상 URL 임베드, CV 카테고리의 PDF 페이지 내 직접 렌더링
 - 낙관적 락(`@Version`)으로 동시 수정 충돌 방지
 
 **파일 업로드**
 - 허용 확장자: `.jpg .jpeg .png .gif .webp .svg .pdf`
 - 확장자 + MIME 타입 이중 검증, 최대 10MB, UUID 파일명으로 저장
+- JPG/PNG 업로드 시 목록용 축소본(`<이름>_thumb.<확장자>`, 최대 900px, EXIF 회전 보정) 자동 생성 — 없으면 프론트가 원본으로 폴백
+- 게시글 수정 시 여전히 참조되는 파일은 삭제하지 않음, 삭제 시 축소본도 함께 정리
 - 경로 탈출(`..`) 차단 및 삭제 시 저장 경로 밖 접근 차단
 
 **사이트 설정** (`/api/settings`)
-- 사이트 제목/부제, 배경 색상·이미지·반복·고정 방식, 텍스트/사이드바 색상
+- 사이트 제목/부제, 메인 페이지 소개 문구·최근 작품 표시 여부, 배경 색상·이미지·반복·고정 방식, 텍스트/사이드바 색상
+- 관리자 화면에서 색상·폰트 실시간 미리보기, Google Fonts 프리셋
 - 커스텀 웹폰트 URL(제목/본문), 로고·파비콘
 - 연락처, 소셜 링크(Instagram / Behance / Email / Website / LinkedIn), 푸터 문구
 
 **보안**
-- Spring Security HTTP Basic + 인메모리 관리자 계정
+- Spring Security 폼 로그인(`/login.html`) + HTTP Basic(API 클라이언트용) + 인메모리 관리자 계정
+- 관리자 화면의 XHR(`X-Requested-With`) 요청은 브라우저 팝업 없이 401 JSON을 받고 로그인 페이지로 안내
 - 읽기(GET) API와 정적 리소스는 공개, 쓰기(POST/PUT/DELETE)는 `ROLE_ADMIN` 전용
 - CSP 헤더 설정, 프로파일별 CORS 허용 도메인 분리
 - `GlobalExceptionHandler`로 예외를 `ErrorResponse` 형식으로 통일
@@ -139,7 +145,7 @@ export ADMIN_PASSWORD=your_admin_password
 
 ## API
 
-인증이 필요한 요청은 HTTP Basic 헤더를 사용합니다.
+인증이 필요한 요청은 HTTP Basic 헤더 또는 폼 로그인 세션 쿠키를 사용합니다. 오류는 `{status, message, timestamp}` 형식으로 응답합니다.
 
 ### 카테고리 `/api/categories`
 
@@ -149,6 +155,8 @@ export ADMIN_PASSWORD=your_admin_password
 | GET | `/api/categories/{id}` | - | 단일 카테고리 조회 |
 | GET | `/api/categories/custom` | - | 사용자 생성 카테고리만 조회 |
 | POST | `/api/categories` | ADMIN | 카테고리 생성 (id는 소문자·숫자·하이픈만) |
+| GET | `/api/categories/{id}/post-count` | ADMIN | 카테고리 내 게시글 수 |
+| PUT | `/api/categories/reorder` | ADMIN | 순서 변경 (`{"ids": [...]}`) |
 | PUT | `/api/categories/{id}` | ADMIN | 카테고리 수정 |
 | DELETE | `/api/categories/{id}` | ADMIN | 카테고리 삭제 |
 
@@ -158,6 +166,7 @@ export ADMIN_PASSWORD=your_admin_password
 | --- | --- | --- | --- |
 | GET | `/api/posts` | - | 전체 게시글 조회 |
 | GET | `/api/posts/{id}` | - | 단일 게시글 조회 |
+| PUT | `/api/posts/reorder` | ADMIN | 순서 변경 (`{"ids": [...]}`) |
 | GET | `/api/posts/category/{categoryId}` | - | 카테고리별 게시글 조회 |
 | POST | `/api/posts` | ADMIN | 게시글 생성 |
 | PUT | `/api/posts/{id}` | ADMIN | 게시글 수정 |

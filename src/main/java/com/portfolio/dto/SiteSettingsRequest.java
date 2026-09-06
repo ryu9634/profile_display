@@ -30,4 +30,6 @@ public class SiteSettingsRequest {
     private String socialWebsite;
     private String socialLinkedin;
     private String footerText;
+    private String mainIntroText;
+    private Boolean showRecentOnMain;
 }

@@ -102,6 +102,14 @@ public class SiteSettings {
     @Column(name = "footer_text")
     private String footerText;
 
+    // 메인 페이지 소개 문구
+    @Column(name = "main_intro_text", columnDefinition = "TEXT")
+    private String mainIntroText;
+
+    // 메인 페이지에 최근 작품을 보여줄지 여부
+    @Column(name = "show_recent_on_main")
+    private Boolean showRecentOnMain = true;
+
     // 타임스탬프
     @Column(name = "created_at")
     private Long createdAt;
