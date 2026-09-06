@@ -1,6 +1,7 @@
 package com.portfolio.controller;
 
 import com.portfolio.dto.PostRequest;
+import com.portfolio.dto.ReorderRequest;
 import com.portfolio.model.Post;
 import com.portfolio.service.PostService;
 import javax.validation.Valid;
@@ -37,6 +38,12 @@ public class PostController {
     public ResponseEntity<Post> createPost(@Valid @RequestBody PostRequest request) {
         Post post = postService.createPost(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(post);
+    }
+
+    @PutMapping("/reorder")
+    public ResponseEntity<Void> reorder(@Valid @RequestBody ReorderRequest request) {
+        postService.reorderPosts(request.getIds());
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}")

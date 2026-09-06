@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>관리자 페이지 - Portfolio Admin</title>
-    <link rel="stylesheet" href="styles/admin.css?v=5">
+    <meta name="robots" content="noindex">
+    <link rel="stylesheet" href="styles/admin.css?v=7">
 
     <!-- Quill.js CDN -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -15,7 +16,13 @@
         <!-- 헤더 -->
         <header class="admin-header">
             <h1>포트폴리오 관리자</h1>
-            <a href="index.html" class="btn-view-site">사이트 보기</a>
+            <div class="admin-header-actions">
+                <span class="header-username" id="header-username" title="현재 로그인한 관리자"></span>
+                <a href="/" target="_blank" rel="noopener" class="btn-view-site">사이트 보기 ↗</a>
+                <form method="post" action="/api/logout" class="logout-form">
+                    <button type="submit" class="btn-logout">로그아웃</button>
+                </form>
+            </div>
         </header>
 
         <div class="admin-container">
@@ -25,15 +32,25 @@
                     <button class="nav-btn active" data-section="categories">카테고리 관리</button>
                     <button class="nav-btn" data-section="posts">게시글 관리</button>
                     <button class="nav-btn" data-section="settings">사이트 설정</button>
+                    <button class="nav-btn" data-section="account">계정 · 비밀번호</button>
                 </nav>
             </aside>
 
             <!-- 메인 콘텐츠 -->
             <main class="admin-content">
+                <!-- 초기 비밀번호 사용 중 경고 -->
+                <div id="initial-password-banner" class="warn-banner" hidden>
+                    ⚠️ 아직 <strong>초기 비밀번호</strong>를 사용하고 있습니다. 누구나 추측할 수 있으니
+                    <a href="#account" onclick="switchSection('account'); return false;">계정 · 비밀번호</a> 메뉴에서 지금 바꿔주세요.
+                </div>
+
                 <!-- 카테고리 관리 섹션 -->
                 <section id="categories-section" class="admin-section active">
                     <div class="section-header">
-                        <h2>카테고리 관리</h2>
+                        <div>
+                            <h2>카테고리 관리</h2>
+                            <p class="section-desc">사이드바 메뉴에 표시되는 순서대로 나열됩니다. ▲▼ 버튼으로 순서를 바꿀 수 있습니다.</p>
+                        </div>
                         <button class="btn btn-primary" onclick="showAddCategoryModal()">+ 새 카테고리</button>
                     </div>
 
@@ -41,6 +58,7 @@
                         <table class="admin-table">
                             <thead>
                                 <tr>
+                                    <th class="col-order">순서</th>
                                     <th>ID</th>
                                     <th>카테고리명</th>
                                     <th>타입</th>
@@ -57,11 +75,15 @@
                 <!-- 게시글 관리 섹션 -->
                 <section id="posts-section" class="admin-section">
                     <div class="section-header">
-                        <h2>게시글 관리</h2>
+                        <div>
+                            <h2>게시글 관리</h2>
+                            <p class="section-desc">카테고리를 선택하면 ▲▼ 버튼으로 사이트에 표시되는 순서를 바꿀 수 있습니다.</p>
+                        </div>
                         <div class="section-controls">
-                            <select id="category-filter" class="category-select">
-                                <option value="">카테고리 선택</option>
+                            <select id="category-filter" class="category-select" aria-label="카테고리 필터">
+                                <option value="">모든 카테고리</option>
                             </select>
+                            <input type="search" id="post-search" class="post-search" placeholder="제목 검색" aria-label="제목 검색">
                             <button class="btn btn-primary" onclick="showAddPostModal()">+ 새 게시글</button>
                         </div>
                     </div>
@@ -76,11 +98,14 @@
                 <!-- 사이트 설정 섹션 -->
                 <section id="settings-section" class="admin-section">
                     <div class="section-header">
-                        <h2>사이트 설정</h2>
-                        <button class="btn btn-primary" onclick="handleSaveSettings()">설정 저장</button>
+                        <div>
+                            <h2>사이트 설정</h2>
+                            <p class="section-desc">변경 후 하단의 <strong>설정 저장</strong> 버튼을 눌러야 사이트에 반영됩니다.</p>
+                        </div>
                     </div>
 
-                    <div class="settings-container">
+                    <div class="settings-layout">
+                    <div class="settings-container" id="settings-form">
                         <!-- 사이트 정보 -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">사이트 정보</h3>
@@ -88,13 +113,13 @@
                                 사이드바 상단에 표시되는 이름과 로고, 브라우저 탭 제목과 파비콘을 설정합니다.
                             </small>
                             <div class="form-group">
-                                <label for="setting-site-title">사이트 제목</label>
-                                <input type="text" id="setting-site-title" placeholder="Jae Hoon Jeoung">
+                                <label for="setting-site-title">사이트 제목 (사이드바 상단·메인 페이지)</label>
+                                <input type="text" id="setting-site-title" placeholder="작가 이름">
                             </div>
                             <div class="form-group">
                                 <label for="setting-site-subtitle">브라우저 탭 제목</label>
                                 <input type="text" id="setting-site-subtitle" placeholder="Artist Portfolio">
-                                <small>브라우저 탭에 표시되는 제목입니다</small>
+                                <small>비워두면 사이트 제목이 탭에 표시됩니다</small>
                             </div>
                             <div class="form-group">
                                 <label>파비콘</label>
@@ -103,7 +128,7 @@
                                     <p>파비콘 이미지를 드래그하거나 클릭하여 선택</p>
                                 </div>
                                 <div id="favicon-preview" class="settings-image-preview"></div>
-                                <small>브라우저 탭에 표시되는 아이콘입니다 (정사각형 이미지 권장)</small>
+                                <small>브라우저 탭에 표시되는 아이콘입니다 (정사각형 PNG 권장)</small>
                             </div>
                             <div class="form-group">
                                 <label>로고 이미지</label>
@@ -115,11 +140,30 @@
                             </div>
                         </div>
 
+                        <!-- 메인 페이지 -->
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">메인 페이지</h3>
+                            <small class="settings-group-desc">
+                                사이트에 처음 들어왔을 때 보이는 화면입니다. 소개 문구와 최근 작품을 함께 보여주거나, 배경 이미지만 보이도록 비워둘 수 있습니다.
+                            </small>
+                            <div class="form-group">
+                                <label for="setting-main-intro">소개 문구</label>
+                                <textarea id="setting-main-intro" rows="4" placeholder="작가 소개, 전시 안내 등 자유롭게 입력하세요. 줄바꿈이 그대로 표시됩니다."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="setting-show-recent" checked>
+                                    메인 페이지에 최근 작품 8개를 표시
+                                </label>
+                                <small>끄면 소개 문구(또는 배경 이미지)만 표시됩니다</small>
+                            </div>
+                        </div>
+
                         <!-- 배경 설정 -->
                         <div class="settings-group">
                             <h3 class="settings-group-title">배경 설정</h3>
                             <small class="settings-group-desc">
-                                사이트 전체 배경 색상과 이미지를 설정합니다. 배경 이미지를 업로드하면 색상 위에 덮어씌워집니다. 이미지 크기/반복/스크롤 옵션으로 표시 방식을 조절할 수 있습니다.
+                                사이트 전체 배경 색상과 이미지를 설정합니다. 배경 이미지를 업로드하면 색상 위에 덮어씌워집니다.
                             </small>
                             <div class="form-row-2">
                                 <div class="form-group">
@@ -177,7 +221,7 @@
                         <div class="settings-group">
                             <h3 class="settings-group-title">사이드바 색상</h3>
                             <small class="settings-group-desc">
-                                왼쪽 메뉴 영역의 색상을 설정합니다. 배경색은 사이드바 전체, 텍스트색은 비활성 메뉴, 활성 항목은 현재 선택된 메뉴의 색상입니다.
+                                왼쪽 메뉴 영역의 색상을 설정합니다. 오른쪽 미리보기에서 바로 확인할 수 있습니다.
                             </small>
                             <div class="form-row-3">
                                 <div class="form-group">
@@ -208,49 +252,77 @@
                         <div class="settings-group">
                             <h3 class="settings-group-title">폰트 설정</h3>
                             <small class="settings-group-desc">
-                                <a href="https://fonts.google.com" target="_blank">Google Fonts</a>에서 원하는 폰트를 선택 &rarr; "Get embed code" 클릭 &rarr; "@import" 탭의 URL을 복사하여 "폰트 URL"에 붙여넣고, font-family 이름을 입력하세요.<br>
-                                예시) URL: <code>https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap</code><br>
-                                font-family: <code>'Playfair Display', serif</code>
+                                목록에서 고르면 URL과 font-family가 자동으로 채워집니다. 목록에 없는 폰트는
+                                <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>에서 "Get embed code" → @import 탭의 URL과 font-family 이름을 직접 입력하세요. (Google Fonts 주소만 지원됩니다)
                             </small>
-                            <div class="form-group">
-                                <label for="setting-title-font-url">제목 폰트 URL</label>
-                                <input type="text" id="setting-title-font-url" placeholder="https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap">
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="setting-title-font-preset">제목 폰트</label>
+                                    <select id="setting-title-font-preset" data-target="title"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-body-font-preset">본문 폰트</label>
+                                    <select id="setting-body-font-preset" data-target="body"></select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="setting-title-font-family">제목 font-family</label>
-                                <input type="text" id="setting-title-font-family" placeholder="'Playfair Display', serif">
-                            </div>
-                            <div class="form-group">
-                                <label for="setting-body-font-url">본문 폰트 URL</label>
-                                <input type="text" id="setting-body-font-url" placeholder="https://fonts.googleapis.com/css2?family=Noto+Sans+KR&display=swap">
-                            </div>
-                            <div class="form-group">
-                                <label for="setting-body-font-family">본문 font-family</label>
-                                <input type="text" id="setting-body-font-family" placeholder="'Noto Sans KR', sans-serif">
-                            </div>
+                            <details class="font-advanced">
+                                <summary>직접 입력 (고급)</summary>
+                                <div class="form-group">
+                                    <label for="setting-title-font-url">제목 폰트 URL</label>
+                                    <input type="text" id="setting-title-font-url" placeholder="https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-title-font-family">제목 font-family</label>
+                                    <input type="text" id="setting-title-font-family" placeholder="'Playfair Display', serif">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-body-font-url">본문 폰트 URL</label>
+                                    <input type="text" id="setting-body-font-url" placeholder="https://fonts.googleapis.com/css2?family=Noto+Sans+KR&display=swap">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-body-font-family">본문 font-family</label>
+                                    <input type="text" id="setting-body-font-family" placeholder="'Noto Sans KR', sans-serif">
+                                </div>
+                            </details>
                         </div>
 
                         <!-- 연락처 정보 -->
                         <div class="settings-group">
-                            <h3 class="settings-group-title">연락처 정보</h3>
+                            <h3 class="settings-group-title">연락처 · 소셜</h3>
                             <small class="settings-group-desc">
-                                사이드바 하단에 이름, 전화번호, 이메일, Instagram 순서로 표시됩니다. 비워두면 해당 항목은 표시되지 않습니다.
+                                사이드바 하단에 표시됩니다. 비워두면 해당 항목은 표시되지 않습니다.
                             </small>
-                            <div class="form-group">
-                                <label for="setting-contact-name">이름</label>
-                                <input type="text" id="setting-contact-name" placeholder="홍길동">
-                            </div>
-                            <div class="form-group">
-                                <label for="setting-contact-phone">전화번호</label>
-                                <input type="text" id="setting-contact-phone" placeholder="010-1234-5678">
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="setting-contact-name">이름</label>
+                                    <input type="text" id="setting-contact-name" placeholder="홍길동">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-contact-phone">전화번호</label>
+                                    <input type="text" id="setting-contact-phone" placeholder="010-1234-5678">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="setting-social-email">이메일</label>
-                                <input type="text" id="setting-social-email" placeholder="artist@example.com">
+                                <input type="email" id="setting-social-email" placeholder="artist@example.com">
                             </div>
                             <div class="form-group">
                                 <label for="setting-social-instagram">Instagram URL</label>
-                                <input type="text" id="setting-social-instagram" placeholder="https://instagram.com/username">
+                                <input type="url" id="setting-social-instagram" placeholder="https://instagram.com/username">
+                            </div>
+                            <div class="form-row-3">
+                                <div class="form-group">
+                                    <label for="setting-social-behance">Behance URL</label>
+                                    <input type="url" id="setting-social-behance" placeholder="https://behance.net/...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-social-linkedin">LinkedIn URL</label>
+                                    <input type="url" id="setting-social-linkedin" placeholder="https://linkedin.com/in/...">
+                                </div>
+                                <div class="form-group">
+                                    <label for="setting-social-website">웹사이트 URL</label>
+                                    <input type="url" id="setting-social-website" placeholder="https://...">
+                                </div>
                             </div>
                         </div>
 
@@ -262,8 +334,106 @@
                             </small>
                             <div class="form-group">
                                 <label for="setting-footer-text">푸터 텍스트</label>
-                                <input type="text" id="setting-footer-text" placeholder="© 2024 Jae Hoon Jeoung. All rights reserved.">
+                                <input type="text" id="setting-footer-text" placeholder="© 2024 Artist Name. All rights reserved.">
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 실시간 미리보기 -->
+                    <aside class="settings-preview-wrap">
+                        <div class="settings-preview-sticky">
+                            <h3 class="settings-group-title">미리보기</h3>
+                            <div class="site-preview" id="site-preview">
+                                <div class="site-preview-sidebar" id="preview-sidebar">
+                                    <div class="site-preview-title" id="preview-site-title">Site title</div>
+                                    <div class="site-preview-nav">
+                                        <span class="site-preview-nav-item active" id="preview-nav-active">Art work</span>
+                                        <span class="site-preview-nav-item">CV</span>
+                                    </div>
+                                </div>
+                                <div class="site-preview-main" id="preview-main">
+                                    <div class="site-preview-work"></div>
+                                    <div class="site-preview-work-title" id="preview-work-title">Untitled</div>
+                                    <div class="site-preview-work-meta">2024, Oil on canvas, 100x80cm</div>
+                                    <p class="site-preview-body" id="preview-body">본문 텍스트 미리보기입니다.</p>
+                                </div>
+                            </div>
+                            <small>색상·폰트·제목이 즉시 반영됩니다. 실제 사이트에는 저장 후 반영됩니다.</small>
+                        </div>
+                    </aside>
+                    </div>
+
+                    <!-- 항상 보이는 저장 바 -->
+                    <div class="settings-save-bar" id="settings-save-bar">
+                        <span class="unsaved-indicator" id="settings-unsaved">저장되지 않은 변경사항이 있습니다</span>
+                        <div class="settings-save-actions">
+                            <button class="btn btn-secondary" type="button" onclick="reloadSettings()">되돌리기</button>
+                            <button class="btn btn-primary" type="button" onclick="handleSaveSettings()">설정 저장</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 계정 섹션 -->
+                <section id="account-section" class="admin-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>계정 · 비밀번호</h2>
+                            <p class="section-desc">관리자 로그인에 쓰는 아이디와 비밀번호를 변경합니다. 변경 내용은 즉시 적용됩니다.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-container">
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">현재 계정</h3>
+                            <dl class="account-info">
+                                <dt>아이디</dt><dd id="account-username">-</dd>
+                                <dt>비밀번호 마지막 변경</dt><dd id="account-changed-at">-</dd>
+                            </dl>
+                        </div>
+
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">아이디 / 비밀번호 변경</h3>
+                            <small class="settings-group-desc">
+                                바꾸고 싶은 항목만 입력하세요. 어느 쪽을 바꾸든 <strong>현재 비밀번호</strong>는 꼭 필요합니다.
+                                비밀번호는 8자 이상이고 영문과 숫자를 모두 포함해야 합니다.
+                            </small>
+                            <form id="account-form" onsubmit="handleChangeAccount(event)" autocomplete="off">
+                                <div class="form-group">
+                                    <label for="account-new-username">새 아이디 (선택)</label>
+                                    <input type="text" id="account-new-username" placeholder="바꾸지 않으려면 비워두세요" autocomplete="username" maxlength="64">
+                                    <small>영문, 숫자, 점(.), 밑줄(_), 하이픈(-)만 사용, 3~64자. 아이디를 바꾸면 다시 로그인해야 합니다.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="account-current-password">현재 비밀번호 <span class="req">*</span></label>
+                                    <input type="password" id="account-current-password" required autocomplete="current-password">
+                                </div>
+                                <div class="form-row-2">
+                                    <div class="form-group">
+                                        <label for="account-new-password">새 비밀번호</label>
+                                        <input type="password" id="account-new-password" autocomplete="new-password" minlength="8" maxlength="72">
+                                        <small id="password-strength" class="password-strength"></small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="account-new-password2">새 비밀번호 확인</label>
+                                        <input type="password" id="account-new-password2" autocomplete="new-password" maxlength="72">
+                                    </div>
+                                </div>
+                                <label class="checkbox-label" style="margin-bottom:1rem">
+                                    <input type="checkbox" id="account-show-password"> 비밀번호 보기
+                                </label>
+                                <div class="account-actions">
+                                    <button type="submit" class="btn btn-primary" id="account-save-btn">변경 저장</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">비밀번호를 잊었을 때</h3>
+                            <small class="settings-group-desc">
+                                서버에서 환경 변수 <code>ADMIN_RESET_PASSWORD=true</code> 로 한 번 재시작하면
+                                <code>ADMIN_USERNAME</code> / <code>ADMIN_PASSWORD</code> 값으로 초기화됩니다.
+                                초기화 뒤에는 반드시 다시 <code>false</code> 로 되돌리고, 여기서 새 비밀번호로 바꿔주세요.
+                            </small>
                         </div>
                     </div>
                 </section>
@@ -272,39 +442,40 @@
     </div>
 
     <!-- 카테고리 추가/수정 모달 -->
-    <div id="category-modal" class="modal">
+    <div id="category-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="category-modal-title">새 카테고리 추가</h3>
-                <span class="close" onclick="closeModal('category-modal')">&times;</span>
+                <button type="button" class="close" aria-label="닫기" onclick="requestCloseModal('category-modal')">&times;</button>
             </div>
             <form id="category-form" onsubmit="handleSaveCategory(event)">
                 <input type="hidden" id="category-edit-id">
 
                 <div class="form-group">
-                    <label for="category-id">카테고리 ID (영문, 소문자)</label>
+                    <label for="category-id">카테고리 ID (영문 소문자·숫자·하이픈)</label>
                     <input type="text" id="category-id" required pattern="[a-z0-9-]+"
-                           placeholder="예: new-category">
+                           placeholder="예: exhibition" title="영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다">
+                    <small>주소(#/카테고리ID)에 사용되며, 만든 뒤에는 바꿀 수 없습니다.</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="category-name">카테고리 이름</label>
+                    <label for="category-name">카테고리 이름 (메뉴에 표시)</label>
                     <input type="text" id="category-name" required
-                           placeholder="예: New Category">
+                           placeholder="예: Exhibition">
                 </div>
 
                 <div class="form-group">
-                    <label for="category-type">카테고리 타입</label>
+                    <label for="category-type">기본 콘텐츠 타입</label>
                     <select id="category-type" required>
                         <option value="PHOTO">PHOTO - 사진/이미지 중심</option>
                         <option value="ARTICLE">ARTICLE - 텍스트 기사</option>
                         <option value="HTML">HTML - 커스텀 HTML</option>
                     </select>
-                    <small>카테고리의 기본 콘텐츠 형식 (게시물마다 변경 가능)</small>
+                    <small>새 게시글을 만들 때 기본으로 선택되는 형식입니다 (게시글마다 변경 가능)</small>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('category-modal')">취소</button>
+                    <button type="button" class="btn btn-secondary" onclick="requestCloseModal('category-modal')">취소</button>
                     <button type="submit" class="btn btn-primary">저장</button>
                 </div>
             </form>
@@ -312,17 +483,17 @@
     </div>
 
     <!-- 게시글 추가/수정 모달 -->
-    <div id="post-modal" class="modal">
+    <div id="post-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="post-modal-title">
         <div class="modal-content large">
             <div class="modal-header">
                 <h3 id="post-modal-title">새 게시글 추가</h3>
-                <span class="close" onclick="closeModal('post-modal')">&times;</span>
+                <button type="button" class="close" aria-label="닫기" onclick="requestCloseModal('post-modal')">&times;</button>
             </div>
-            <form id="post-form" onsubmit="handleSavePost(event)">
+            <form id="post-form" onsubmit="handleSavePost(event)" novalidate>
                 <input type="hidden" id="post-id">
 
                 <div class="form-group">
-                    <label for="post-category">카테고리</label>
+                    <label for="post-category">카테고리 <span class="req">*</span></label>
                     <select id="post-category" onchange="handleCategoryChange()">
                         <option value="">선택하세요</option>
                     </select>
@@ -331,15 +502,16 @@
                 <!-- CV 카테고리 전용 PDF 업로드 -->
                 <div id="cv-pdf-group" style="display: none;">
                     <div class="form-group">
-                        <label>CV PDF 파일</label>
+                        <label>CV PDF 파일 <span class="req">*</span></label>
                         <input type="hidden" id="cv-pdf-filename">
+                        <small>CV 페이지에는 이 PDF가 그대로 표시됩니다. 새 파일을 올리면 기존 파일을 대체합니다.</small>
                     </div>
                 </div>
 
                 <!-- 일반 게시글 필드 (CV 선택 시 숨김) -->
                 <div id="normal-post-fields">
                     <div class="form-group">
-                        <label for="post-content-type">콘텐츠 타입</label>
+                        <label for="post-content-type">콘텐츠 타입 <span class="req">*</span></label>
                         <select id="post-content-type" onchange="handleContentTypeChange()">
                             <option value="">선택하세요</option>
                             <option value="PHOTO">PHOTO - 이미지 갤러리</option>
@@ -349,17 +521,17 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="post-title">제목</label>
-                        <input type="text" id="post-title" placeholder="작품 제목">
+                        <label for="post-title">제목 <span class="req">*</span></label>
+                        <input type="text" id="post-title" placeholder="작품 제목" maxlength="200">
                     </div>
 
-                    <div class="form-row">
+                    <div class="form-row" id="meta-row">
                         <div class="form-group">
                             <label for="post-year">연도</label>
                             <input type="text" id="post-year" placeholder="2024">
                         </div>
                         <div class="form-group">
-                            <label for="post-medium">매체</label>
+                            <label for="post-medium">재료</label>
                             <input type="text" id="post-medium" placeholder="캔버스에 아크릴">
                         </div>
                         <div class="form-group">
@@ -368,9 +540,9 @@
                         </div>
                     </div>
 
-                    <!-- PHOTO/ARTICLE 타입에서 표시 -->
+                    <!-- ARTICLE 타입에서 표시 (대표 이미지) -->
                     <div class="form-group" id="thumbnail-group" style="display: none;">
-                        <label for="post-thumbnail">썸네일 이미지</label>
+                        <label for="post-thumbnail">대표 이미지 (목록 썸네일)</label>
                         <input type="text" id="post-thumbnail" placeholder="파일명" readonly>
                     </div>
 
@@ -392,34 +564,38 @@
                         <textarea id="post-html-content" rows="15"
                                   placeholder="HTML 코드를 입력하세요..."
                                   style="font-family: monospace;"></textarea>
+                        <small>스크립트도 실행됩니다. 외부 이미지는 보안 정책상 표시되지 않을 수 있으니 업로드한 파일(/api/files/파일명)을 사용하세요.</small>
                     </div>
 
                     <!-- PHOTO/ARTICLE 타입에서 표시 -->
                     <div class="form-group" id="additional-images-group" style="display: none;">
                         <label>미디어 목록</label>
+                        <small id="media-hint" class="media-hint">맨 위 이미지가 목록의 대표 이미지(썸네일)로 사용됩니다. ▲▼로 순서를 바꿀 수 있습니다.</small>
                         <div id="additional-images">
                             <!-- 미디어 항목이 여기에 표시됩니다 -->
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
+                        <div class="media-add-row">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="addMediaInput()">+ 이미지 추가</button>
                             <button type="button" class="btn btn-secondary btn-sm" onclick="addMediaInput({mediaType:'VIDEO'})">+ 영상 추가</button>
+                            <input type="file" id="bulk-image-input" accept="image/*" multiple style="display:none">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('bulk-image-input').click()">+ 여러 이미지 한 번에</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('post-modal')">취소</button>
-                    <button type="submit" class="btn btn-primary">저장</button>
+                    <button type="button" class="btn btn-secondary" onclick="requestCloseModal('post-modal')">취소</button>
+                    <button type="submit" class="btn btn-primary" id="post-save-btn">저장</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Toast 컨테이너 -->
-    <div id="toast-container" class="toast-container"></div>
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
     <!-- 확인 모달 -->
-    <div id="confirm-modal" class="confirm-modal-overlay">
+    <div id="confirm-modal" class="confirm-modal-overlay" role="alertdialog" aria-modal="true">
         <div class="confirm-modal-box">
             <p id="confirm-modal-message"></p>
             <div class="confirm-modal-actions">
@@ -429,6 +605,6 @@
         </div>
     </div>
 
-    <script src="scripts/admin.js?v=5"></script>
+    <script src="scripts/admin.js?v=7"></script>
 </body>
 </html>

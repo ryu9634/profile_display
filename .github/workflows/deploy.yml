@@ -1,0 +1,118 @@
+# EC2 배포 워크플로
+#
+# 실행 방법
+#  - GitHub > Actions > "Deploy to EC2" > Run workflow (브랜치 선택) 또는 main 브랜치에 push
+#
+# 필요한 Repository secrets (Settings > Secrets and variables > Actions)
+#  - EC2_HOST     : 서버 주소 (예: 13.54.153.158 또는 jaehoonjeong.com)
+#  - EC2_SSH_KEY  : PEM 개인키 전체 내용 (-----BEGIN ... END----- 포함)
+#  - EC2_USER     : (선택) SSH 사용자, 기본값 ubuntu
+#
+# 서버 쪽 동작은 deploy.sh / deploy/deploy.sh 와 같습니다:
+#  JAR 전송 → 기존 JAR 백업 → /opt/portfolio 에 복사 → systemctl restart portfolio → 헬스체크
+
+name: Deploy to EC2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+env:
+  JAR_NAME: portfolio-backend-1.0.0.jar
+  DEPLOY_DIR: /opt/portfolio
+
+jobs:
+  deploy:
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build JAR
+        run: mvn -B clean package -DskipTests
+
+      - name: Verify JAR
+        run: ls -la "target/${JAR_NAME}"
+
+      - name: Upload JAR to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: target/${{ env.JAR_NAME }}
+          target: /tmp/portfolio-deploy
+          strip_components: 1
+          overwrite: true
+
+      - name: Install & restart service
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          JAR_NAME: ${{ env.JAR_NAME }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: JAR_NAME,DEPLOY_DIR
+          script_stop: true
+          script: |
+            set -e
+            STAMP=$(date +%Y%m%d_%H%M%S)
+            sudo mkdir -p "$DEPLOY_DIR/backups" "$DEPLOY_DIR/uploads"
+
+            # 1) 기존 JAR 백업
+            if [ -f "$DEPLOY_DIR/$JAR_NAME" ]; then
+              sudo cp "$DEPLOY_DIR/$JAR_NAME" "$DEPLOY_DIR/backups/$JAR_NAME.$STAMP"
+              echo "backup: $DEPLOY_DIR/backups/$JAR_NAME.$STAMP"
+            fi
+
+            # 2) 서버에 남아 있는 예전 정적 파일이 JAR 안의 새 화면을 덮어쓰지 않도록 백업 후 비움
+            #    (application-prod: static-locations=file:/opt/portfolio/static/ 이 classpath보다 우선)
+            if [ -d "$DEPLOY_DIR/static" ] && [ -n "$(ls -A "$DEPLOY_DIR/static" 2>/dev/null)" ]; then
+              sudo mv "$DEPLOY_DIR/static" "$DEPLOY_DIR/backups/static.$STAMP"
+              echo "moved stale static dir to backups/static.$STAMP"
+            fi
+
+            # 3) 새 JAR 설치
+            sudo cp "/tmp/portfolio-deploy/$JAR_NAME" "$DEPLOY_DIR/$JAR_NAME"
+            sudo chown "$(id -un):$(id -gn)" "$DEPLOY_DIR/$JAR_NAME"
+            sudo chmod 755 "$DEPLOY_DIR/$JAR_NAME"
+            rm -rf /tmp/portfolio-deploy
+
+            # 4) 재시작
+            sudo systemctl restart portfolio
+            sudo systemctl enable portfolio >/dev/null 2>&1 || true
+
+            # 5) 헬스체크 (최대 90초 대기)
+            for i in $(seq 1 30); do
+              sleep 3
+              if curl -sf http://localhost:8080/api/health | grep -q '"status":"UP"'; then
+                echo "health: UP (after $((i*3))s)"
+                sudo systemctl status portfolio --no-pager | head -5
+                exit 0
+              fi
+            done
+            echo "health check failed. recent logs:"
+            sudo journalctl -u portfolio -n 80 --no-pager
+            exit 1
+
+      - name: Smoke test public site
+        run: |
+          HOST="${{ secrets.EC2_HOST }}"
+          curl -sSf --max-time 20 "https://jaehoonjeong.com/api/health" || curl -sSf --max-time 20 "http://$HOST/api/health"

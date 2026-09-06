@@ -88,6 +88,8 @@ public class SiteSettingsService {
         settings.setSocialWebsite(request.getSocialWebsite());
         settings.setSocialLinkedin(request.getSocialLinkedin());
         settings.setFooterText(request.getFooterText());
+        settings.setMainIntroText(request.getMainIntroText());
+        settings.setShowRecentOnMain(request.getShowRecentOnMain() == null || request.getShowRecentOnMain());
 
         log.info("사이트 설정 업데이트");
         return repository.save(settings);

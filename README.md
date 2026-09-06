@@ -3,8 +3,9 @@
 작가 포트폴리오 웹사이트와 관리자 페이지를 함께 제공하는 Spring Boot 애플리케이션입니다.
 작품 이미지·영상·PDF를 카테고리별로 등록하고, 사이트의 색상·폰트·연락처까지 관리자 화면에서 직접 수정할 수 있습니다.
 
-- 공개 사이트: `/` (사이드바 카테고리 + 작품 그리드 + 상세 팝업)
-- 관리자 페이지: `/admin` (HTTP Basic 인증, `ROLE_ADMIN` 필요)
+- 공개 사이트: `/` (메인 소개 + 최근 작품, 사이드바 카테고리, 작품 목록·상세 팝업)
+  - 해시 라우팅: `#/카테고리ID`, `#/카테고리ID/게시글ID` — 새로고침·뒤로가기·링크 공유 가능
+- 관리자 페이지: `/admin` (로그인 페이지 `/login.html`, `ROLE_ADMIN` 필요)
 - 운영 도메인: https://jaehoonjeong.com
 
 ---
@@ -27,23 +28,30 @@
 
 **콘텐츠 관리**
 - 카테고리 CRUD — `PHOTO` / `ARTICLE` / `HTML` 3가지 타입, 기본 카테고리(`main`, `artwork`, `cv`)는 최초 실행 시 자동 생성
-- 게시글 CRUD — 제목·연도·재료·크기·설명·썸네일 및 다중 이미지 관리
-- 미디어 순서 변경, 이미지별 설명/표시 위치(`left`/`right`) 옵션
+- 게시글 CRUD — 제목(필수)·연도·재료·크기·설명 및 다중 이미지 관리 (PHOTO는 미디어 목록의 첫 이미지가 썸네일)
+- 게시글·카테고리 순서 변경(`PUT /reorder`), 미디어 순서 변경, 이미지별 설명/표시 위치 옵션
+- 상세 팝업에서 이전/다음 작품 이동(← → 키), 라이트박스 스와이프, 키보드 접근성
 - YouTube 영상 URL 임베드, CV 카테고리의 PDF 페이지 내 직접 렌더링
 - 낙관적 락(`@Version`)으로 동시 수정 충돌 방지
 
 **파일 업로드**
 - 허용 확장자: `.jpg .jpeg .png .gif .webp .svg .pdf`
 - 확장자 + MIME 타입 이중 검증, 최대 10MB, UUID 파일명으로 저장
+- JPG/PNG 업로드 시 목록용 축소본(`<이름>_thumb.<확장자>`, 최대 900px, EXIF 회전 보정) 자동 생성 — 없으면 프론트가 원본으로 폴백
+- 게시글 수정 시 여전히 참조되는 파일은 삭제하지 않음, 삭제 시 축소본도 함께 정리
 - 경로 탈출(`..`) 차단 및 삭제 시 저장 경로 밖 접근 차단
 
 **사이트 설정** (`/api/settings`)
-- 사이트 제목/부제, 배경 색상·이미지·반복·고정 방식, 텍스트/사이드바 색상
+- 사이트 제목/부제, 메인 페이지 소개 문구·최근 작품 표시 여부, 배경 색상·이미지·반복·고정 방식, 텍스트/사이드바 색상
+- 관리자 화면에서 색상·폰트 실시간 미리보기, Google Fonts 프리셋
 - 커스텀 웹폰트 URL(제목/본문), 로고·파비콘
 - 연락처, 소셜 링크(Instagram / Behance / Email / Website / LinkedIn), 푸터 문구
 
 **보안**
-- Spring Security HTTP Basic + 인메모리 관리자 계정
+- Spring Security 폼 로그인(`/login.html`) + HTTP Basic(API 클라이언트용)
+- 관리자 계정은 DB(`admin_account`)에 BCrypt 해시로 저장. 최초 실행 시 `admin.username`/`admin.password`로 생성되고, 관리자 페이지 **계정 · 비밀번호** 메뉴에서 아이디/비밀번호 변경 (`POST /api/account/change`)
+- 비밀번호 분실 시 `ADMIN_RESET_PASSWORD=true`로 한 번 재시작하면 설정값으로 초기화 (초기화 후 다시 `false`)
+- 관리자 화면의 XHR(`X-Requested-With`) 요청은 브라우저 팝업 없이 401 JSON을 받고 로그인 페이지로 안내
 - 읽기(GET) API와 정적 리소스는 공개, 쓰기(POST/PUT/DELETE)는 `ROLE_ADMIN` 전용
 - CSP 헤더 설정, 프로파일별 CORS 허용 도메인 분리
 - `GlobalExceptionHandler`로 예외를 `ErrorResponse` 형식으로 통일
@@ -121,7 +129,8 @@ java -jar -Dspring.profiles.active=prod target/portfolio-backend-1.0.0.jar
 | 업로드 경로 | `file.upload-dir` | local `./uploads` / prod `/opt/portfolio/uploads` |
 | 업로드 최대 크기 | `spring.servlet.multipart.max-file-size` | `10MB` |
 | CORS 허용 도메인 | `cors.allowed-origins` | 프로파일별 지정 |
-| 관리자 계정 | `admin.username` / `admin.password` | 운영은 환경 변수 필수 |
+| 관리자 계정 초기값 | `admin.username` / `admin.password` | 최초 실행 시 DB에 계정 생성용. 이후엔 관리자 페이지에서 변경 |
+| 비밀번호 초기화 | `admin.reset-password` (`ADMIN_RESET_PASSWORD`) | `true`로 한 번 재시작하면 위 값으로 초기화. 평소엔 `false` |
 
 운영 환경에서는 다음 환경 변수를 반드시 설정해야 합니다.
 
@@ -137,9 +146,23 @@ export ADMIN_PASSWORD=your_admin_password
 
 ---
 
+## 배포
+
+**GitHub Actions (권장)** — `.github/workflows/deploy.yml`
+1. 저장소 Settings → Secrets and variables → Actions 에 `EC2_HOST`, `EC2_SSH_KEY`(PEM 전체 내용), 필요 시 `EC2_USER` 등록
+2. Actions → **Deploy to EC2** → Run workflow (배포할 브랜치 선택). `main` 에 push 하면 자동 실행
+3. 빌드 → JAR 전송 → 기존 JAR 백업 → `systemctl restart portfolio` → `/api/health` 확인 순으로 진행
+
+**로컬 스크립트** — `./deploy.sh` (Mac에서 PEM 키로 직접 접속, 기존 방식)
+
+> 서버의 `/opt/portfolio/static/` 에 예전 정적 파일이 남아 있으면 JAR 안의 새 화면 대신 그 파일이 보입니다.
+> 워크플로는 이 디렉토리를 `backups/`로 옮긴 뒤 배포합니다. 수동 배포 시에는 직접 비워주세요.
+
+---
+
 ## API
 
-인증이 필요한 요청은 HTTP Basic 헤더를 사용합니다.
+인증이 필요한 요청은 HTTP Basic 헤더 또는 폼 로그인 세션 쿠키를 사용합니다. 오류는 `{status, message, timestamp}` 형식으로 응답합니다.
 
 ### 카테고리 `/api/categories`
 
@@ -149,6 +172,8 @@ export ADMIN_PASSWORD=your_admin_password
 | GET | `/api/categories/{id}` | - | 단일 카테고리 조회 |
 | GET | `/api/categories/custom` | - | 사용자 생성 카테고리만 조회 |
 | POST | `/api/categories` | ADMIN | 카테고리 생성 (id는 소문자·숫자·하이픈만) |
+| GET | `/api/categories/{id}/post-count` | ADMIN | 카테고리 내 게시글 수 |
+| PUT | `/api/categories/reorder` | ADMIN | 순서 변경 (`{"ids": [...]}`) |
 | PUT | `/api/categories/{id}` | ADMIN | 카테고리 수정 |
 | DELETE | `/api/categories/{id}` | ADMIN | 카테고리 삭제 |
 
@@ -158,6 +183,14 @@ export ADMIN_PASSWORD=your_admin_password
 | --- | --- | --- | --- |
 | GET | `/api/posts` | - | 전체 게시글 조회 |
 | GET | `/api/posts/{id}` | - | 단일 게시글 조회 |
+| PUT | `/api/posts/reorder` | ADMIN | 순서 변경 (`{"ids": [...]}`) |
+
+### 관리자 계정 `/api/account`
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/api/account` | ADMIN | 현재 아이디, 비밀번호 변경 시각, 초기 비밀번호 사용 여부 |
+| POST | `/api/account/change` | ADMIN | `{currentPassword, newUsername?, newPassword?}` — 아이디 변경 시 재로그인 필요 |
 | GET | `/api/posts/category/{categoryId}` | - | 카테고리별 게시글 조회 |
 | POST | `/api/posts` | ADMIN | 게시글 생성 |
 | PUT | `/api/posts/{id}` | ADMIN | 게시글 수정 |
