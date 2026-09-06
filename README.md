@@ -153,10 +153,19 @@ export ADMIN_PASSWORD=your_admin_password
 2. Actions → **Deploy to EC2** → Run workflow (배포할 브랜치 선택). `main` 에 push 하면 자동 실행
 3. 빌드 → JAR 전송 → 기존 JAR 백업 → `systemctl restart portfolio` → `/api/health` 확인 순으로 진행
 
-**로컬 스크립트** — `./deploy.sh` (Mac에서 PEM 키로 직접 접속, 기존 방식)
+**로컬 스크립트** — `./deploy.sh` (Mac에서 PEM 키로 직접 접속, GitHub 시크릿 불필요)
+
+```bash
+cd /Users/ryu/Desktop/PJ_jeung/printPP
+git checkout main && git pull
+./deploy.sh
+```
+
+빌드 → JAR 전송 → 기존 JAR 백업 → 예전 정적 파일 정리 → `systemctl restart` → `/api/health` 확인 순으로 진행하며,
+헬스체크가 실패하면 서버 로그를 출력하고 0이 아닌 코드로 종료합니다.
 
 > 서버의 `/opt/portfolio/static/` 에 예전 정적 파일이 남아 있으면 JAR 안의 새 화면 대신 그 파일이 보입니다.
-> 워크플로는 이 디렉토리를 `backups/`로 옮긴 뒤 배포합니다. 수동 배포 시에는 직접 비워주세요.
+> 두 방식 모두 배포 전에 이 디렉토리를 `backups/` 로 옮깁니다.
 
 ---
 
