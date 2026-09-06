@@ -33,6 +33,29 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # 시크릿이 비어 있으면 여기서 바로, 원인이 보이는 메시지로 중단합니다.
+      # (없는 채로 진행하면 scp 단계에서 "can't connect without a private SSH key" 만 남습니다)
+      - name: Check required secrets
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          missing=""
+          [ -z "$EC2_HOST" ] && missing="$missing EC2_HOST"
+          [ -z "$EC2_SSH_KEY" ] && missing="$missing EC2_SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::배포에 필요한 시크릿이 없습니다:$missing"
+            echo ""
+            echo "등록 위치: 저장소 Settings > Secrets and variables > Actions > New repository secret"
+            echo "  EC2_HOST     서버 주소 (예: 13.54.153.158)"
+            echo "  EC2_SSH_KEY  PEM 개인키 파일 전체 내용 (-----BEGIN ... -----END ... 포함)"
+            echo "  EC2_USER     (선택) SSH 사용자. 기본값 ubuntu"
+            echo ""
+            echo "등록 후 Actions > Deploy to EC2 > Run workflow 로 다시 실행하세요."
+            exit 1
+          fi
+          echo "secrets OK (host=${EC2_HOST:0:3}***, key length=${#EC2_SSH_KEY})"
+
       - name: Checkout
         uses: actions/checkout@v4
 
