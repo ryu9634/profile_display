@@ -146,6 +146,20 @@ export ADMIN_PASSWORD=your_admin_password
 
 ---
 
+## 배포
+
+**GitHub Actions (권장)** — `.github/workflows/deploy.yml`
+1. 저장소 Settings → Secrets and variables → Actions 에 `EC2_HOST`, `EC2_SSH_KEY`(PEM 전체 내용), 필요 시 `EC2_USER` 등록
+2. Actions → **Deploy to EC2** → Run workflow (배포할 브랜치 선택). `main` 에 push 하면 자동 실행
+3. 빌드 → JAR 전송 → 기존 JAR 백업 → `systemctl restart portfolio` → `/api/health` 확인 순으로 진행
+
+**로컬 스크립트** — `./deploy.sh` (Mac에서 PEM 키로 직접 접속, 기존 방식)
+
+> 서버의 `/opt/portfolio/static/` 에 예전 정적 파일이 남아 있으면 JAR 안의 새 화면 대신 그 파일이 보입니다.
+> 워크플로는 이 디렉토리를 `backups/`로 옮긴 뒤 배포합니다. 수동 배포 시에는 직접 비워주세요.
+
+---
+
 ## API
 
 인증이 필요한 요청은 HTTP Basic 헤더 또는 폼 로그인 세션 쿠키를 사용합니다. 오류는 `{status, message, timestamp}` 형식으로 응답합니다.
