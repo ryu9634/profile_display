@@ -35,8 +35,40 @@ echo "  -> 전송 완료!"
 # 3. 서버 배포 & 재시작
 echo ""
 echo "[3/3] 서버 배포 및 재시작 중..."
-ssh -i "$PEM_KEY" -o StrictHostKeyChecking=no "$SERVER" \
-  "sudo cp /tmp/$JAR_NAME /opt/portfolio/ && sudo systemctl restart portfolio"
+ssh -i "$PEM_KEY" -o StrictHostKeyChecking=no "$SERVER" "bash -s" <<REMOTE
+set -e
+STAMP=\$(date +%Y%m%d_%H%M%S)
+sudo mkdir -p /opt/portfolio/backups
+
+# 1) 기존 JAR 백업 (문제가 생기면 되돌릴 수 있도록)
+if [ -f /opt/portfolio/$JAR_NAME ]; then
+  sudo cp /opt/portfolio/$JAR_NAME /opt/portfolio/backups/$JAR_NAME.\$STAMP
+  echo "  백업: /opt/portfolio/backups/$JAR_NAME.\$STAMP"
+fi
+
+# 2) 서버에 남은 예전 정적 파일이 JAR 안의 새 화면을 덮어쓰지 않도록 치웁니다.
+#    (application-prod 의 static-locations 가 file:/opt/portfolio/static/ 를 먼저 봅니다)
+if [ -d /opt/portfolio/static ] && [ -n "\$(ls -A /opt/portfolio/static 2>/dev/null)" ]; then
+  sudo mv /opt/portfolio/static /opt/portfolio/backups/static.\$STAMP
+  echo "  예전 정적 파일을 backups/static.\$STAMP 로 옮김"
+fi
+
+# 3) 새 JAR 설치 후 재시작
+sudo cp /tmp/$JAR_NAME /opt/portfolio/
+sudo systemctl restart portfolio
+
+# 4) 헬스체크 (최대 90초)
+for i in \$(seq 1 30); do
+  sleep 3
+  if curl -sf http://localhost:8080/api/health | grep -q '"status":"UP"'; then
+    echo "  헬스체크 통과 (\$((i*3))초)"
+    exit 0
+  fi
+done
+echo "  헬스체크 실패. 최근 로그:"
+sudo journalctl -u portfolio -n 60 --no-pager
+exit 1
+REMOTE
 echo "  -> 재시작 완료!"
 
 echo ""
