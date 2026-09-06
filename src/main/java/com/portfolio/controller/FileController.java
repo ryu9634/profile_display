@@ -41,7 +41,7 @@ public class FileController {
 
             // 경로 탐색 공격 방지
             if (!filePath.startsWith(fileStorageService.getFileStorageLocation())) {
-                throw new RuntimeException("접근이 거부되었습니다: " + fileName);
+                return ResponseEntity.notFound().build();
             }
 
             Resource resource = new UrlResource(filePath.toUri());
@@ -59,11 +59,12 @@ public class FileController {
                         .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                         .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
                         .body(resource);
-            } else {
-                throw new RuntimeException("파일을 찾을 수 없습니다: " + fileName);
             }
+            // 없는 파일은 404. (400으로 응답하면 브라우저 콘솔에 오류로 남고
+            //  프론트의 축소본 → 원본 폴백이 오류처럼 보입니다)
+            return ResponseEntity.notFound().build();
         } catch (MalformedURLException ex) {
-            throw new RuntimeException("파일을 찾을 수 없습니다: " + fileName, ex);
+            return ResponseEntity.notFound().build();
         }
     }
 

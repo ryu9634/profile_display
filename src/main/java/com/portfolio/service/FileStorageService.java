@@ -121,13 +121,10 @@ public class FileStorageService {
             BufferedImage oriented = applyOrientation(original, orientation);
             int w = oriented.getWidth();
             int h = oriented.getHeight();
-            if (w <= THUMB_MAX_WIDTH) {
-                // 이미 작은 이미지는 회전만 반영해서 저장 (없으면 프론트가 원본을 사용)
-                if (orientation == 1) {
-                    return;
-                }
-            }
 
+            // 원본이 이미 작아도 축소본을 만들어 둡니다.
+            // 프론트는 항상 "<이름>_thumb" 을 먼저 요청하므로, 없으면 이미지마다
+            // 실패 요청이 한 번씩 발생합니다. (EXIF 회전도 여기서 반영됩니다)
             double ratio = Math.min(1.0, (double) THUMB_MAX_WIDTH / w);
             int tw = Math.max(1, (int) Math.round(w * ratio));
             int th = Math.max(1, (int) Math.round(h * ratio));
