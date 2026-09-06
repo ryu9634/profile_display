@@ -48,7 +48,9 @@
 - 연락처, 소셜 링크(Instagram / Behance / Email / Website / LinkedIn), 푸터 문구
 
 **보안**
-- Spring Security 폼 로그인(`/login.html`) + HTTP Basic(API 클라이언트용) + 인메모리 관리자 계정
+- Spring Security 폼 로그인(`/login.html`) + HTTP Basic(API 클라이언트용)
+- 관리자 계정은 DB(`admin_account`)에 BCrypt 해시로 저장. 최초 실행 시 `admin.username`/`admin.password`로 생성되고, 관리자 페이지 **계정 · 비밀번호** 메뉴에서 아이디/비밀번호 변경 (`POST /api/account/change`)
+- 비밀번호 분실 시 `ADMIN_RESET_PASSWORD=true`로 한 번 재시작하면 설정값으로 초기화 (초기화 후 다시 `false`)
 - 관리자 화면의 XHR(`X-Requested-With`) 요청은 브라우저 팝업 없이 401 JSON을 받고 로그인 페이지로 안내
 - 읽기(GET) API와 정적 리소스는 공개, 쓰기(POST/PUT/DELETE)는 `ROLE_ADMIN` 전용
 - CSP 헤더 설정, 프로파일별 CORS 허용 도메인 분리
@@ -127,7 +129,8 @@ java -jar -Dspring.profiles.active=prod target/portfolio-backend-1.0.0.jar
 | 업로드 경로 | `file.upload-dir` | local `./uploads` / prod `/opt/portfolio/uploads` |
 | 업로드 최대 크기 | `spring.servlet.multipart.max-file-size` | `10MB` |
 | CORS 허용 도메인 | `cors.allowed-origins` | 프로파일별 지정 |
-| 관리자 계정 | `admin.username` / `admin.password` | 운영은 환경 변수 필수 |
+| 관리자 계정 초기값 | `admin.username` / `admin.password` | 최초 실행 시 DB에 계정 생성용. 이후엔 관리자 페이지에서 변경 |
+| 비밀번호 초기화 | `admin.reset-password` (`ADMIN_RESET_PASSWORD`) | `true`로 한 번 재시작하면 위 값으로 초기화. 평소엔 `false` |
 
 운영 환경에서는 다음 환경 변수를 반드시 설정해야 합니다.
 
@@ -167,6 +170,13 @@ export ADMIN_PASSWORD=your_admin_password
 | GET | `/api/posts` | - | 전체 게시글 조회 |
 | GET | `/api/posts/{id}` | - | 단일 게시글 조회 |
 | PUT | `/api/posts/reorder` | ADMIN | 순서 변경 (`{"ids": [...]}`) |
+
+### 관리자 계정 `/api/account`
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/api/account` | ADMIN | 현재 아이디, 비밀번호 변경 시각, 초기 비밀번호 사용 여부 |
+| POST | `/api/account/change` | ADMIN | `{currentPassword, newUsername?, newPassword?}` — 아이디 변경 시 재로그인 필요 |
 | GET | `/api/posts/category/{categoryId}` | - | 카테고리별 게시글 조회 |
 | POST | `/api/posts` | ADMIN | 게시글 생성 |
 | PUT | `/api/posts/{id}` | ADMIN | 게시글 수정 |

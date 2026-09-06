@@ -21,6 +21,8 @@ ExecStart=/usr/bin/java \
 # 환경 변수 (실제 값은 /etc/systemd/system/portfolio.service.d/override.conf에 설정)
 Environment="ADMIN_USERNAME=${ADMIN_USERNAME}"
 Environment="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
+# 비밀번호를 잊었을 때만 true 로 바꿔 한 번 재시작 (초기화 후 다시 false)
+Environment="ADMIN_RESET_PASSWORD=false"
 Environment="DB_PASSWORD=${DB_PASSWORD}"
 
 # 로그 설정

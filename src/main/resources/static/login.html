@@ -92,6 +92,9 @@
             } else if (params.has('expired')) {
                 msg.textContent = '로그인이 만료되었습니다. 다시 로그인해주세요.';
                 msg.className = 'msg info';
+            } else if (params.has('relogin')) {
+                msg.textContent = '아이디가 변경되었습니다. 새 아이디로 로그인해주세요.';
+                msg.className = 'msg info';
             }
         })();
     </script>

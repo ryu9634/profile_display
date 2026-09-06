@@ -178,10 +178,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFilters();
     setupModalKeyboard();
     await loadCategories();
+    loadAccount(false);
 
     // 주소 해시로 섹션 복원 (#posts 등)
     const section = (location.hash || '').replace('#', '');
-    if (['categories', 'posts', 'settings'].includes(section)) {
+    if (['categories', 'posts', 'settings', 'account'].includes(section)) {
         switchSection(section);
     }
 });
@@ -288,6 +289,8 @@ async function switchSection(sectionName) {
         renderPostsGrid();
     } else if (sectionName === 'settings') {
         loadSettings();
+    } else if (sectionName === 'account') {
+        loadAccount(true);
     }
 }
 
@@ -1714,5 +1717,119 @@ async function handleSaveSettings() {
     } catch (error) {
         console.error('설정 저장 실패:', error);
         showToast(`설정 저장 실패: ${error.message}`, 'error');
+    }
+}
+
+// ============================
+// 관리자 계정 (아이디 / 비밀번호 변경)
+// ============================
+async function loadAccount(showErrors) {
+    try {
+        const info = await apiFetch('/account');
+        document.getElementById('header-username').textContent = info.username || '';
+        document.getElementById('account-username').textContent = info.username || '-';
+        document.getElementById('account-changed-at').textContent = info.passwordChangedAt
+            ? new Date(info.passwordChangedAt).toLocaleString('ko-KR')
+            : '기록 없음';
+        document.getElementById('initial-password-banner').hidden = !info.usingInitialPassword;
+    } catch (error) {
+        console.error('계정 정보 로드 실패:', error);
+        if (showErrors) showToast(`계정 정보를 불러오지 못했습니다: ${error.message}`, 'error');
+    }
+}
+
+function passwordStrength(pw) {
+    if (!pw) return { text: '', level: '' };
+    const hasLetter = /[A-Za-z]/.test(pw);
+    const hasDigit = /\d/.test(pw);
+    const hasSpecial = /[^A-Za-z0-9]/.test(pw);
+    if (pw.length < 8 || !hasLetter || !hasDigit) return { text: '8자 이상, 영문+숫자 필요', level: 'weak' };
+    if (pw.length >= 12 && hasSpecial) return { text: '강함', level: 'strong' };
+    return { text: '보통 (12자 이상 + 특수문자면 더 안전)', level: 'ok' };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const newPw = document.getElementById('account-new-password');
+    const strengthEl = document.getElementById('password-strength');
+    if (newPw && strengthEl) {
+        newPw.addEventListener('input', () => {
+            const st = passwordStrength(newPw.value);
+            strengthEl.textContent = st.text;
+            strengthEl.className = `password-strength ${st.level}`;
+        });
+    }
+    const show = document.getElementById('account-show-password');
+    if (show) {
+        show.addEventListener('change', () => {
+            ['account-current-password', 'account-new-password', 'account-new-password2'].forEach(id => {
+                document.getElementById(id).type = show.checked ? 'text' : 'password';
+            });
+        });
+    }
+});
+
+async function handleChangeAccount(event) {
+    event.preventDefault();
+
+    const currentPassword = document.getElementById('account-current-password').value;
+    const newUsername = document.getElementById('account-new-username').value.trim();
+    const newPassword = document.getElementById('account-new-password').value;
+    const newPassword2 = document.getElementById('account-new-password2').value;
+    const btn = document.getElementById('account-save-btn');
+
+    if (!currentPassword) {
+        showToast('현재 비밀번호를 입력해주세요.', 'warning');
+        document.getElementById('account-current-password').focus();
+        return;
+    }
+    if (!newUsername && !newPassword) {
+        showToast('새 아이디 또는 새 비밀번호 중 하나는 입력해야 합니다.', 'warning');
+        return;
+    }
+    if (newUsername && !/^[A-Za-z0-9._-]{3,64}$/.test(newUsername)) {
+        showToast('아이디는 영문, 숫자, 점, 밑줄, 하이픈만 사용해 3~64자로 입력해주세요.', 'warning');
+        document.getElementById('account-new-username').focus();
+        return;
+    }
+    if (newPassword) {
+        const st = passwordStrength(newPassword);
+        if (st.level === 'weak') {
+            showToast('새 비밀번호는 8자 이상이고 영문과 숫자를 모두 포함해야 합니다.', 'warning');
+            document.getElementById('account-new-password').focus();
+            return;
+        }
+        if (newPassword !== newPassword2) {
+            showToast('새 비밀번호와 확인 값이 일치하지 않습니다.', 'warning');
+            document.getElementById('account-new-password2').focus();
+            return;
+        }
+        if (newPassword === currentPassword) {
+            showToast('새 비밀번호가 현재 비밀번호와 같습니다.', 'warning');
+            return;
+        }
+    }
+
+    const payload = { currentPassword };
+    if (newUsername) payload.newUsername = newUsername;
+    if (newPassword) payload.newPassword = newPassword;
+
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+    try {
+        const info = await apiFetch('/account/change', { method: 'POST', json: payload });
+        document.getElementById('account-form').reset();
+        document.getElementById('password-strength').textContent = '';
+        if (info.reloginRequired) {
+            showToast('아이디가 변경되었습니다. 새 아이디로 다시 로그인해주세요.', 'success', 4000);
+            setTimeout(() => { location.href = '/login.html?relogin'; }, 1200);
+            return;
+        }
+        showToast(newPassword ? '비밀번호가 변경되었습니다.' : '계정 정보가 변경되었습니다.', 'success');
+        loadAccount(true);
+    } catch (error) {
+        showToast(`변경 실패: ${error.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '변경 저장';
     }
 }

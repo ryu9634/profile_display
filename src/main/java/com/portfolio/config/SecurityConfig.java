@@ -1,18 +1,13 @@
 package com.portfolio.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
@@ -24,26 +19,13 @@ import java.nio.charset.StandardCharsets;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${admin.username:admin}")
-    private String adminUsername;
-
-    @Value("${admin.password:admin123}")
-    private String adminPassword;
-
+    /**
+     * 관리자 계정은 DB(admin_account)에 저장되며 AdminAccountService 가 UserDetailsService 로 동작합니다.
+     * 최초 실행 시 admin.username / admin.password 값으로 생성되고, 이후 관리자 화면에서 변경할 수 있습니다.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails admin = User.builder()
-                .username(adminUsername)
-                .password(passwordEncoder().encode(adminPassword))
-                .roles("ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(admin);
     }
 
     /**
@@ -88,6 +70,7 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.GET, "/api/settings").permitAll()
 
                 .antMatchers("/admin", "/admin.html").hasRole("ADMIN")
+                .antMatchers("/api/account/**").hasRole("ADMIN")
                 .antMatchers(HttpMethod.GET, "/api/categories/*/post-count").hasRole("ADMIN")
                 .antMatchers(HttpMethod.POST, "/api/settings").hasRole("ADMIN")
                 .antMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")

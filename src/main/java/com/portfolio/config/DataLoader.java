@@ -2,6 +2,7 @@ package com.portfolio.config;
 
 import com.portfolio.model.Category;
 import com.portfolio.repository.CategoryRepository;
+import com.portfolio.service.AdminAccountService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,13 @@ public class DataLoader implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DataLoader.class);
 
     private final CategoryRepository categoryRepository;
+    private final AdminAccountService adminAccountService;
 
     @Override
     public void run(String... args) throws Exception {
+        // 관리자 계정 생성/초기화 (admin.reset-password 참고)
+        adminAccountService.ensureAccount();
+
         if (categoryRepository.count() == 0) {
             categoryRepository.save(category("main", "Main", "PHOTO", false, 0));
             categoryRepository.save(category("artwork", "Art work", "PHOTO", true, 1));
