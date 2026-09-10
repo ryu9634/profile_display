@@ -5,15 +5,57 @@
 
 set -e
 
+# ============================================
 # 설정
-PROJECT_DIR="/Users/ryu/Desktop/PJ_jeung/printPP"
-PEM_KEY="/Users/ryu/Downloads/profileJ.pem"
-SERVER="ubuntu@13.54.153.158"
+#  경로를 고정하지 않습니다. 이 스크립트가 놓인 폴더를 프로젝트 폴더로 보므로
+#  저장소를 어디에 두든 그대로 동작합니다.
+#  키 위치나 서버가 다르면 환경 변수로 덮어쓸 수 있습니다.
+#    예) PEM_KEY=~/keys/my.pem ./deploy.sh
+# ============================================
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVER="${SERVER:-ubuntu@13.54.153.158}"
 JAR_NAME="portfolio-backend-1.0.0.jar"
 
-# Java 17 설정
-export JAVA_HOME=$(brew --prefix openjdk@17)
-export PATH="$JAVA_HOME/bin:$PATH"
+# SSH 키: 환경 변수가 없으면 흔한 위치를 순서대로 찾습니다
+if [ -z "${PEM_KEY:-}" ]; then
+    for candidate in \
+        "$HOME/Downloads/profileJ.pem" \
+        "$HOME/.ssh/profileJ.pem" \
+        "$HOME/keys/profileJ.pem" \
+        "$PROJECT_DIR/profileJ.pem"; do
+        if [ -f "$candidate" ]; then
+            PEM_KEY="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "${PEM_KEY:-}" ] || [ ! -f "$PEM_KEY" ]; then
+    echo "[오류] SSH 키 파일(profileJ.pem)을 찾지 못했습니다."
+    echo "       키 위치를 직접 알려주세요:"
+    echo "         PEM_KEY=/키/파일/경로.pem ./deploy.sh"
+    exit 1
+fi
+
+# 권한이 느슨하면 ssh 가 키를 거부합니다
+chmod 400 "$PEM_KEY" 2>/dev/null || true
+
+echo "프로젝트 폴더: $PROJECT_DIR"
+echo "SSH 키:        $PEM_KEY"
+echo "서버:          $SERVER"
+
+# Java 17 설정 (brew 로 설치된 경우에만 적용)
+if command -v brew >/dev/null 2>&1 && brew --prefix openjdk@17 >/dev/null 2>&1; then
+    export JAVA_HOME="$(brew --prefix openjdk@17)"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+if ! command -v mvn >/dev/null 2>&1; then
+    echo "[오류] mvn(Maven)을 찾을 수 없습니다. 설치 후 다시 실행해주세요."
+    exit 1
+fi
+
 
 echo "========================================="
 echo "  포트폴리오 배포 시작"

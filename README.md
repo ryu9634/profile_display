@@ -156,7 +156,7 @@ export ADMIN_PASSWORD=your_admin_password
 **로컬 스크립트** — `./deploy.sh` (Mac에서 PEM 키로 직접 접속, GitHub 시크릿 불필요)
 
 ```bash
-cd /Users/ryu/Desktop/PJ_jeung/printPP
+cd ~/JH_WEB          # 저장소를 내려받은 폴더
 git checkout main && git pull
 ./deploy.sh
 ```
