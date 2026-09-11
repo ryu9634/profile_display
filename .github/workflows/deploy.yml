@@ -4,7 +4,7 @@
 #  - GitHub > Actions > "Deploy to EC2" > Run workflow (브랜치 선택) 또는 main 브랜치에 push
 #
 # 필요한 Repository secrets (Settings > Secrets and variables > Actions)
-#  - EC2_HOST     : 서버 주소 (예: 13.54.153.158 또는 jaehoonjeong.com)
+#  - EC2_HOST     : 서버 주소 (예: 203.0.113.10 또는 example.com)
 #  - EC2_SSH_KEY  : PEM 개인키 전체 내용 (-----BEGIN ... END----- 포함)
 #  - EC2_USER     : (선택) SSH 사용자, 기본값 ubuntu
 #
@@ -47,7 +47,7 @@ jobs:
             echo "::error::배포에 필요한 시크릿이 없습니다:$missing"
             echo ""
             echo "등록 위치: 저장소 Settings > Secrets and variables > Actions > New repository secret"
-            echo "  EC2_HOST     서버 주소 (예: 13.54.153.158)"
+            echo "  EC2_HOST     서버 주소 (예: 203.0.113.10)"
             echo "  EC2_SSH_KEY  PEM 개인키 파일 전체 내용 (-----BEGIN ... -----END ... 포함)"
             echo "  EC2_USER     (선택) SSH 사용자. 기본값 ubuntu"
             echo ""
@@ -138,4 +138,4 @@ jobs:
       - name: Smoke test public site
         run: |
           HOST="${{ secrets.EC2_HOST }}"
-          curl -sSf --max-time 20 "https://jaehoonjeong.com/api/health" || curl -sSf --max-time 20 "http://$HOST/api/health"
+          curl -sSf --max-time 20 "http://$HOST/api/health"

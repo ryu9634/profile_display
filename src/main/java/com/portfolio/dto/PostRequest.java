@@ -8,6 +8,12 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 게시글 생성·수정 요청 값입니다.
+ *
+ * 연도·재료·크기는 작품에 따라 비어 있을 수 있어 필수로 두지 않았고,
+ * 목록에 빈 값이 그대로 노출되지 않도록 표시할 때 걸러 냅니다.
+ */
 @Data
 public class PostRequest {
 

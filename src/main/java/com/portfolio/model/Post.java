@@ -8,6 +8,17 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 작품 또는 글 한 건입니다.
+ *
+ * 세 가지 contentType 을 한 테이블에서 다룹니다.
+ *   PHOTO   - 이미지 갤러리 (images 사용)
+ *   ARTICLE - 리치 텍스트 본문 (description 에 Quill 델타를 JSON 으로 저장)
+ *   HTML    - 직접 작성한 HTML (htmlContent)
+ *
+ * images 를 EAGER 로 둔 것은 목록과 상세 어디서든 항상 함께 쓰이고,
+ * 한 게시글의 미디어가 많아야 수십 건이라 지연 로딩의 이점이 없어서입니다.
+ */
 @Entity
 @Table(name = "posts", indexes = {
     @Index(name = "idx_post_category", columnList = "categoryId"),
