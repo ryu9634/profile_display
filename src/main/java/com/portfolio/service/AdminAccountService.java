@@ -9,11 +9,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 /**
@@ -31,17 +35,20 @@ public class AdminAccountService implements UserDetailsService {
 
     private final AdminAccountRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final LoginAttemptService loginAttemptService;
     private final String initialUsername;
     private final String initialPassword;
     private final boolean resetPassword;
 
     public AdminAccountService(AdminAccountRepository repository,
                                PasswordEncoder passwordEncoder,
+                               LoginAttemptService loginAttemptService,
                                @Value("${admin.username:admin}") String initialUsername,
                                @Value("${admin.password:admin123}") String initialPassword,
                                @Value("${admin.reset-password:false}") boolean resetPassword) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.loginAttemptService = loginAttemptService;
         this.initialUsername = initialUsername;
         this.initialPassword = initialPassword;
         this.resetPassword = resetPassword;
@@ -73,9 +80,23 @@ public class AdminAccountService implements UserDetailsService {
         }
     }
 
+    /**
+     * 로그인 시 Spring Security 가 호출합니다.
+     *
+     * 비밀번호를 비교하기 전에 시도 횟수부터 확인합니다. 여기서 막으면
+     * 폼 로그인과 HTTP Basic 두 경로가 함께 보호됩니다.
+     */
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        String ipKey = currentIpKey();
+        String userKey = "user:" + username;
+        if (loginAttemptService.isBlocked(ipKey) || loginAttemptService.isBlocked(userKey)) {
+            long minutes = Math.max(loginAttemptService.remainingLockMinutes(ipKey),
+                                    loginAttemptService.remainingLockMinutes(userKey));
+            throw new LockedException("로그인 시도가 너무 많습니다. " + minutes + "분 후에 다시 시도해주세요.");
+        }
+
         AdminAccount account = repository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("관리자 계정을 찾을 수 없습니다"));
         return User.builder()
@@ -132,6 +153,16 @@ public class AdminAccountService implements UserDetailsService {
         repository.save(account);
         log.info("관리자 계정 변경: username={}, passwordChanged={}", account.getUsername(), newPassword != null);
         return getAccountInfo();
+    }
+
+    /** 현재 요청의 클라이언트 IP. 요청 밖(앱 기동 등)에서 호출되면 null 입니다. */
+    private static String currentIpKey() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes) {
+            HttpServletRequest request =
+                    ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            return "ip:" + request.getRemoteAddr();
+        }
+        return null;
     }
 
     private AdminAccount getAccount() {

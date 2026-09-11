@@ -82,12 +82,20 @@ sudo nginx -t && sudo systemctl reload nginx
 
 `server_name` 을 실제 도메인으로 바꿔야 합니다.
 
-HTTPS는 Certbot으로 발급합니다. HTTP를 HTTPS로 돌리는 설정도 함께 넣어 줍니다.
+HTTPS는 Certbot으로 발급합니다.
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d example.com -d www.example.com
 ```
+
+> **HTTPS는 선택이 아닙니다.** 운영 설정은 세션 쿠키에 `Secure` 를 붙이므로,
+> 평문 HTTP로 접속하면 쿠키가 전달되지 않아 로그인이 유지되지 않습니다.
+> `deploy/nginx.conf` 에 HTTP → HTTPS 리다이렉트가 포함되어 있습니다.
+
+`proxy_set_header X-Forwarded-For` 와 `X-Forwarded-Proto` 를 반드시 넘겨야 합니다.
+애플리케이션이 이 헤더로 원래 클라이언트 IP를 판단하는데, 없으면 로그인 시도 제한이
+모든 접속을 Nginx의 IP 하나로 묶어 버립니다.
 
 ---
 
