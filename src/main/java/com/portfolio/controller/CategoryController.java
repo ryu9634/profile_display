@@ -13,6 +13,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 카테고리 CRUD 및 순서 변경 API.
+ *
+ * 조회는 공개 사이트가 사이드바를 그릴 때 쓰므로 인증 없이 허용하고,
+ * 나머지는 관리자만 호출할 수 있습니다.
+ */
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor

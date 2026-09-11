@@ -5,6 +5,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * 사이드바 메뉴 한 칸에 해당하는 카테고리입니다.
+ *
+ * id 를 직접 정하는 이유는 주소(#/artwork)에 그대로 노출되기 때문입니다.
+ * main 과 cv 는 사이트 구조상 없으면 화면이 깨지므로 isDeletable=false 로 잠급니다.
+ */
 @Entity
 @Table(name = "categories")
 @Data

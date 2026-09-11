@@ -122,3 +122,6 @@ build/
 *.bak
 *.cache
 *.pid
+
+# 배포용 로컬 설정 (서버 주소, SSH 키 경로)
+deploy.env

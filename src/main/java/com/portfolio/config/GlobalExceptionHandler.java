@@ -12,6 +12,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+/**
+ * 모든 예외를 {@link ErrorResponse} 형태의 JSON 으로 통일해 응답합니다.
+ *
+ * 관리자 화면은 여기서 내려준 message 를 그대로 사용자에게 보여주므로,
+ * 메시지는 "무엇이 잘못됐고 어떻게 고치면 되는지" 알 수 있게 씁니다.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

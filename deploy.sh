@@ -14,8 +14,24 @@ set -e
 # ============================================
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER="${SERVER:-ubuntu@13.54.153.158}"
 JAR_NAME="portfolio-backend-1.0.0.jar"
+
+# 서버 주소와 키 위치는 저장소에 두지 않습니다.
+# 프로젝트 폴더에 deploy.env 를 만들어 두면 자동으로 읽습니다 (git 에 올라가지 않음).
+#   SERVER=ubuntu@203.0.113.10
+#   PEM_KEY=/Users/me/Downloads/my-key.pem
+if [ -f "$PROJECT_DIR/deploy.env" ]; then
+    # shellcheck disable=SC1091
+    . "$PROJECT_DIR/deploy.env"
+fi
+
+if [ -z "${SERVER:-}" ]; then
+    echo "[오류] 배포할 서버 주소가 없습니다."
+    echo "       deploy.env 파일을 만들거나 환경 변수로 넘겨주세요:"
+    echo "         cp deploy.env.example deploy.env   # 그 뒤 값 수정"
+    echo "         SERVER=ubuntu@서버주소 ./deploy.sh"
+    exit 1
+fi
 
 # SSH 키: 환경 변수가 없으면 흔한 위치를 순서대로 찾습니다
 if [ -z "${PEM_KEY:-}" ]; then
@@ -115,5 +131,5 @@ echo "  -> 재시작 완료!"
 
 echo ""
 echo "========================================="
-echo "  배포 완료! https://jaehoonjeong.com"
+echo "  배포 완료!"
 echo "========================================="

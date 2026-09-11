@@ -2,6 +2,9 @@ package com.portfolio.dto;
 
 import lombok.Data;
 
+/**
+ * 사이트 설정 저장 요청 값입니다. 관리자 화면의 입력 항목과 1:1로 대응합니다.
+ */
 @Data
 public class SiteSettingsRequest {
     private String siteTitle;

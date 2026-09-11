@@ -12,6 +12,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 게시글(작품) CRUD API.
+ *
+ * 조회는 누구나, 생성/수정/삭제와 순서 변경은 관리자만 호출할 수 있습니다.
+ * (권한 분리는 {@code SecurityConfig} 에서 경로와 HTTP 메서드로 처리합니다)
+ */
 @RestController
 @RequestMapping("/api/posts")
 @RequiredArgsConstructor
