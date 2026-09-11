@@ -8,9 +8,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 
 import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +51,24 @@ public class SecurityConfig {
                 basic.commence(request, response, authException);
             }
         };
+    }
+
+    /**
+     * 시도 횟수 초과로 잠긴 상태인지 확인합니다.
+     *
+     * UserDetailsService 안에서 던진 LockedException 은 DaoAuthenticationProvider 가
+     * InternalAuthenticationServiceException 으로 감싸기 때문에, 원인 예외까지 따라가야 합니다.
+     */
+    private static boolean isLocked(Throwable exception) {
+        for (Throwable t = exception; t != null; t = t.getCause()) {
+            if (t instanceof LockedException) {
+                return true;
+            }
+            if (t.getCause() == t) {
+                break;
+            }
+        }
+        return false;
     }
 
     @Bean
@@ -95,7 +116,9 @@ public class SecurityConfig {
                 .usernameParameter("username")
                 .passwordParameter("password")
                 .defaultSuccessUrl("/admin", true)
-                .failureUrl("/login.html?error")
+                // 시도 횟수 초과로 잠긴 경우와 단순 오입력을 구분해서 안내합니다.
+                .failureHandler((request, response, exception) -> response.sendRedirect(
+                        isLocked(exception) ? "/login.html?locked" : "/login.html?error"))
                 .permitAll()
             )
 
@@ -106,7 +129,18 @@ public class SecurityConfig {
                 .deleteCookies("JSESSIONID")
             )
 
-            .csrf().disable()
+            // CSRF 보호.
+            // 화면이 정적 HTML 이라 서버 템플릿에 토큰을 심을 수 없어, 쿠키로 내려주고
+            // 자바스크립트가 X-XSRF-TOKEN 헤더에 실어 보냅니다.
+            //
+            // Authorization 헤더를 직접 붙이는 요청(스크립트의 HTTP Basic 호출)은 제외합니다.
+            // 브라우저가 그 헤더를 알아서 붙여 주는 경로가 없으므로 CSRF 대상이 아니고,
+            // 매번 토큰을 먼저 받아 오게 하면 API 사용이 불편해집니다.
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .ignoringRequestMatchers(request -> request.getHeader("Authorization") != null)
+            )
+            .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
 
             .headers(headers -> headers
                 .contentSecurityPolicy(csp -> csp

@@ -49,8 +49,21 @@ const FONT_PRESETS = [
 //  - 401이면 로그인 페이지로 이동
 //  - 실패 시 서버가 보낸 메시지를 그대로 Error로 던짐 (화면에 그대로 표시)
 // ============================
+/** 서버가 내려준 CSRF 토큰을 쿠키에서 읽습니다. */
+function csrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function apiFetch(path, options = {}) {
     const headers = Object.assign({ 'X-Requested-With': 'XMLHttpRequest' }, options.headers || {});
+
+    // 조회가 아닌 요청에는 CSRF 토큰을 실어 보냅니다.
+    const method = (options.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+        const token = csrfToken();
+        if (token) headers['X-XSRF-TOKEN'] = token;
+    }
     if (options.json !== undefined) {
         headers['Content-Type'] = 'application/json';
         options.body = JSON.stringify(options.json);
@@ -70,7 +83,8 @@ async function apiFetch(path, options = {}) {
         throw new Error('로그인이 필요합니다');
     }
     if (response.status === 403) {
-        throw new Error('권한이 없습니다');
+        // 권한 부족이거나, 보안 토큰이 만료된 경우입니다.
+        throw new Error('요청이 거부되었습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.');
     }
 
     if (!response.ok) {
@@ -1844,4 +1858,21 @@ async function handleChangeAccount(event) {
         btn.disabled = false;
         btn.textContent = '변경 저장';
     }
+}
+
+// ============================
+// 로그아웃
+//  CSRF 토큰이 필요하므로 단순 form submit 대신 fetch 로 보냅니다.
+// ============================
+async function handleLogout() {
+    try {
+        await fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-XSRF-TOKEN': csrfToken() || '' }
+        });
+    } catch (e) {
+        // 요청이 실패해도 로그인 화면으로 보냅니다.
+    }
+    location.href = '/login.html?logout';
 }

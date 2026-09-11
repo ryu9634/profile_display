@@ -76,6 +76,7 @@
         <label for="password">비밀번호</label>
         <input type="password" id="password" name="password" required autocomplete="current-password">
 
+        <input type="hidden" id="csrf" name="_csrf">
         <button type="submit">로그인</button>
         <a class="back" href="/">← 사이트로 돌아가기</a>
     </form>
@@ -96,6 +97,15 @@
             } else if (params.has('relogin')) {
                 msg.textContent = '아이디가 변경되었습니다. 새 아이디로 로그인해주세요.';
                 msg.className = 'msg info';
+            } else if (params.has('locked')) {
+                msg.textContent = '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+                msg.className = 'msg error';
+            }
+
+            // 서버가 쿠키로 내려준 CSRF 토큰을 폼에 담습니다.
+            var token = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+            if (token) {
+                document.getElementById('csrf').value = decodeURIComponent(token[1]);
             }
         })();
     </script>
