@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -19,6 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * IP 와 아이디를 각각 셉니다.
  *   - IP 기준: 한 곳에서 여러 아이디를 시도하는 경우를 막습니다.
  *   - 아이디 기준: 여러 IP 에서 한 아이디를 노리는 경우를 막습니다.
+ *
+ * 시각은 {@link Clock} 으로 받습니다. 직접 Instant.now() 를 부르면
+ * "15분 뒤 잠김이 풀린다"를 검증하려고 15분을 기다려야 하기 때문입니다.
  */
 @Service
 public class LoginAttemptService {
@@ -36,6 +40,12 @@ public class LoginAttemptService {
 
     private final Map<String, Attempt> attempts = new ConcurrentHashMap<>();
 
+    private final Clock clock;
+
+    public LoginAttemptService(Clock clock) {
+        this.clock = clock;
+    }
+
     private static final class Attempt {
         int count;
         Instant lastFailure;
@@ -45,7 +55,7 @@ public class LoginAttemptService {
         if (key == null || key.isEmpty()) {
             return;
         }
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         attempts.compute(key, (k, a) -> {
             if (a == null || Duration.between(a.lastFailure, now).compareTo(COUNTER_RESET) > 0) {
                 a = new Attempt();
@@ -75,7 +85,7 @@ public class LoginAttemptService {
         if (a == null || a.count < MAX_ATTEMPTS) {
             return false;
         }
-        if (Duration.between(a.lastFailure, Instant.now()).compareTo(LOCK_DURATION) > 0) {
+        if (Duration.between(a.lastFailure, Instant.now(clock)).compareTo(LOCK_DURATION) > 0) {
             attempts.remove(key);   // 잠김 시간이 지났으므로 해제
             return false;
         }
@@ -88,7 +98,7 @@ public class LoginAttemptService {
         if (a == null) {
             return 0;
         }
-        long left = LOCK_DURATION.minus(Duration.between(a.lastFailure, Instant.now())).toMinutes();
+        long left = LOCK_DURATION.minus(Duration.between(a.lastFailure, Instant.now(clock))).toMinutes();
         return Math.max(1, left);
     }
 
@@ -100,7 +110,7 @@ public class LoginAttemptService {
         if (attempts.size() < 1000) {
             return;
         }
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         attempts.entrySet().removeIf(e ->
                 Duration.between(e.getValue().lastFailure, now).compareTo(COUNTER_RESET) > 0);
     }

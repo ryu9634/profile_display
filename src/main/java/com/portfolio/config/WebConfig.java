@@ -27,14 +27,20 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        var registration = registry.addMapping("/api/**")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("Content-Type", "Authorization")
-                .allowCredentials(true);
-
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            registration.allowedOriginPatterns(allowedOrigins.split(","));
+        // 허용 도메인을 지정하지 않았으면 CORS 를 아예 열지 않습니다.
+        // 화면과 API 가 같은 도메인에서 서비스되므로 이것이 기본값입니다.
+        //
+        // 매핑만 등록하고 도메인을 비워 두면 Spring 이 allowedOrigins 를 "*" 로 보고,
+        // allowCredentials=true 와 충돌해 모든 요청이 400 으로 떨어집니다.
+        if (allowedOrigins == null || allowedOrigins.trim().isEmpty()) {
+            return;
         }
+
+        registry.addMapping("/api/**")
+                .allowedOriginPatterns(allowedOrigins.split(","))
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("Content-Type", "Authorization", "X-Requested-With", "X-XSRF-TOKEN")
+                .allowCredentials(true);
     }
 
     @Override
