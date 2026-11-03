@@ -3,16 +3,14 @@ package com.portfolio.controller;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
+/**
+ * 관리자용 화면 주소.
+ *
+ * 공개 사이트 주소(/, /카테고리, /카테고리/작품ID)는 메타 태그를 심어야 하므로
+ * {@link PublicPageController} 가 따로 처리합니다.
+ */
 @Controller
 public class HomeController {
-
-    /**
-     * 루트 경로 - 포트폴리오 메인 페이지
-     */
-    @GetMapping("/")
-    public String home() {
-        return "forward:/index.html";
-    }
 
     /**
      * 관리자 페이지

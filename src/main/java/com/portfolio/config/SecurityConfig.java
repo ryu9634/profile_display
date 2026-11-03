@@ -15,12 +15,45 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationEn
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    /**
+     * 공개 사이트의 화면 주소.
+     *
+     * <pre>
+     *   /            메인
+     *   /artwork     카테고리 목록
+     *   /artwork/12  작품 상세
+     * </pre>
+     *
+     * {@code PublicPageController} 의 매핑과 같은 범위를 가리킵니다.
+     * 점이 들어간 조각(파일 요청)과 관리자·API 경로는 제외하므로,
+     * 이 규칙이 앞에 와도 /admin 이나 /api 의 권한을 넓히지 않습니다.
+     */
+    private static final Pattern PUBLIC_PAGE_PATH = Pattern.compile(
+            "^/(?!admin$|login$|api$|api/|uploads/|actuator$|actuator/|error$)(?:[^/.]+(?:/\\d+)?)?$");
+
+    private static boolean isPublicPage(HttpServletRequest request) {
+        if (!HttpMethod.GET.matches(request.getMethod())) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        if (path.isEmpty()) {
+            path = "/";
+        }
+        return PUBLIC_PAGE_PATH.matcher(path).matches();
+    }
 
     /**
      * 관리자 계정은 DB(admin_account)에 저장되며 AdminAccountService 가 UserDetailsService 로 동작합니다.
@@ -79,6 +112,10 @@ public class SecurityConfig {
                 .antMatchers("/styles/**", "/scripts/**").permitAll()
                 .antMatchers("/uploads/**").permitAll()
                 .antMatchers("/favicon.ico").permitAll()
+
+                // 작품 주소(/artwork, /artwork/12)와 크롤러용 파일은 누구나 볼 수 있어야 합니다.
+                .requestMatchers(SecurityConfig::isPublicPage).permitAll()
+                .antMatchers(HttpMethod.GET, "/sitemap.xml", "/robots.txt").permitAll()
 
                 .antMatchers(HttpMethod.GET, "/api/health").permitAll()
 
