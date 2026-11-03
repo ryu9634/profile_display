@@ -67,8 +67,9 @@ public class PostService {
         }
         if (request.getImages() != null) {
             for (PostImage img : request.getImages()) {
-                if (img.getImageUrl() != null && !"VIDEO".equals(img.getMediaType())) {
-                    stillReferenced.add(img.getImageUrl());
+                String file = img.uploadedFileName();
+                if (file != null) {
+                    stillReferenced.add(file);
                 }
             }
         }
@@ -80,8 +81,9 @@ public class PostService {
         }
         if (post.getImages() != null) {
             for (PostImage img : post.getImages()) {
-                if (img.getImageUrl() != null && !"VIDEO".equals(img.getMediaType())) {
-                    previouslyUsed.add(img.getImageUrl());
+                String file = img.uploadedFileName();
+                if (file != null) {
+                    previouslyUsed.add(file);
                 }
             }
         }
@@ -148,8 +150,9 @@ public class PostService {
         }
         if (post.getImages() != null) {
             for (PostImage img : post.getImages()) {
-                if (img.getImageUrl() != null && !"VIDEO".equals(img.getMediaType())) {
-                    files.add(img.getImageUrl());
+                String file = img.uploadedFileName();
+                if (file != null) {
+                    files.add(file);
                 }
             }
         }
@@ -165,6 +168,7 @@ public class PostService {
         post.setSize(nullToEmpty(request.getSize()));
         post.setThumbnail(request.getThumbnail());
         post.setDescription(request.getDescription());
+        post.setArticleContent(request.getArticleContent());
         post.setVideoUrl(request.getVideoUrl());
         post.setHtmlContent(request.getHtmlContent());
         post.setImages(request.getImages() != null ? request.getImages() : new ArrayList<>());

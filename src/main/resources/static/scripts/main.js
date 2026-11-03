@@ -739,7 +739,7 @@ function collectMediaItems(post) {
 
         sorted.forEach(img => {
             if (img.mediaType === 'VIDEO') {
-                const videoId = extractYouTubeId(img.imageUrl);
+                const videoId = extractYouTubeId(img.videoUrl);
                 if (videoId) {
                     items.push({
                         type: 'video',
@@ -750,11 +750,11 @@ function collectMediaItems(post) {
                         descriptionPosition: img.descriptionPosition || 'right'
                     });
                 }
-            } else if (img.imageUrl) {
+            } else if (img.fileName) {
                 items.push({
                     type: 'image',
-                    fileName: img.imageUrl,
-                    url: fileUrl(img.imageUrl),
+                    fileName: img.fileName,
+                    url: fileUrl(img.fileName),
                     description: img.imageDescription,
                     showDescription: img.showDescription !== false,
                     showImageDescription: img.showImageDescription || false,
@@ -848,17 +848,19 @@ function renderMainView(modal, items, index) {
 // 설명 렌더링 (ARTICLE: Quill 델타 → HTML, PHOTO: 일반 텍스트)
 function renderDescription(post, target) {
     if (!target) return;
-    if (!post.description) {
-        target.innerHTML = '';
-        return;
-    }
 
+    // ARTICLE 본문과 PHOTO 설명은 서버에서 서로 다른 필드로 옵니다.
+    // 예전에는 한 필드에 섞여 와서 파싱을 시도해 보고 실패하면 평문으로 취급했습니다.
     if (post.contentType === 'ARTICLE') {
+        if (!post.articleContent) {
+            target.innerHTML = '';
+            return;
+        }
         let delta;
         try {
-            delta = JSON.parse(post.description);
+            delta = JSON.parse(post.articleContent);
         } catch (e) {
-            target.innerHTML = `<p style="white-space: pre-wrap;">${escapeHtml(post.description)}</p>`;
+            target.innerHTML = `<p style="white-space: pre-wrap;">${escapeHtml(post.articleContent)}</p>`;
             return;
         }
         target.innerHTML = '<p class="detail-loading">Loading…</p>';
@@ -872,16 +874,20 @@ function renderDescription(post, target) {
                 target.innerHTML = `<div class="ql-snow"><div class="ql-editor">${tempQuill.root.innerHTML}</div></div>`;
             } catch (e) {
                 console.error('Quill 렌더링 실패:', e);
-                target.innerHTML = `<p>${escapeHtml(post.description)}</p>`;
+                target.innerHTML = `<p>${escapeHtml(post.articleContent)}</p>`;
             } finally {
                 document.body.removeChild(tempDiv);
             }
         }).catch(() => {
-            target.innerHTML = `<p>${escapeHtml(post.description)}</p>`;
+            target.innerHTML = `<p>${escapeHtml(post.articleContent)}</p>`;
         });
         return;
     }
 
+    if (!post.description) {
+        target.innerHTML = '';
+        return;
+    }
     target.innerHTML = `<p style="white-space: pre-wrap;">${escapeHtml(post.description)}</p>`;
 }
 

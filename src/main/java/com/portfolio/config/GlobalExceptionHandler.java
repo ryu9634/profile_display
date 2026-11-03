@@ -1,5 +1,6 @@
 package com.portfolio.config;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.portfolio.dto.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * 모든 예외를 {@link ErrorResponse} 형태의 JSON 으로 통일해 응답합니다.
@@ -47,10 +51,30 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(400, message));
     }
 
+    /**
+     * 본문을 읽지 못한 경우.
+     *
+     * 정해진 값 중에서 골라야 하는 항목(enum)에 다른 값이 오면
+     * 무엇을 보낼 수 있는지 알려 줍니다. "형식이 올바르지 않습니다"만으로는
+     * 어디를 고쳐야 할지 알 수 없기 때문입니다.
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(400, "요청 형식이 올바르지 않습니다"));
+        String message = "요청 형식이 올바르지 않습니다";
+
+        if (ex.getCause() instanceof InvalidFormatException) {
+            InvalidFormatException cause = (InvalidFormatException) ex.getCause();
+            Class<?> target = cause.getTargetType();
+            if (target != null && target.isEnum()) {
+                String allowed = Arrays.stream(target.getEnumConstants())
+                        .map(String::valueOf)
+                        .collect(Collectors.joining(", "));
+                message = String.format("'%s' 은(는) 사용할 수 없는 값입니다. %s 중 하나여야 합니다",
+                        cause.getValue(), allowed);
+            }
+        }
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(400, message));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

@@ -1,8 +1,9 @@
 package com.portfolio.dto;
 
+import com.portfolio.model.ContentType;
 import com.portfolio.model.PostImage;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
+import javax.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -20,9 +21,8 @@ public class PostRequest {
     @NotBlank(message = "카테고리 ID는 필수입니다")
     private String categoryId;
 
-    @NotBlank(message = "콘텐츠 타입은 필수입니다")
-    @Pattern(regexp = "^(PHOTO|ARTICLE|HTML)$", message = "콘텐츠 타입은 PHOTO, ARTICLE, HTML 중 하나여야 합니다")
-    private String contentType;
+    @NotNull(message = "콘텐츠 타입은 필수입니다")
+    private ContentType contentType;
 
     @NotBlank(message = "제목은 필수입니다")
     private String title;
@@ -35,7 +35,11 @@ public class PostRequest {
 
     private String thumbnail;
 
+    /** PHOTO 의 평문 설명 */
     private String description;
+
+    /** ARTICLE 본문 (Quill 델타 JSON) */
+    private String articleContent;
 
     private String videoUrl;
 

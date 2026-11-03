@@ -12,8 +12,8 @@ import java.util.List;
  * 작품 또는 글 한 건입니다.
  *
  * 세 가지 contentType 을 한 테이블에서 다룹니다.
- *   PHOTO   - 이미지 갤러리 (images 사용)
- *   ARTICLE - 리치 텍스트 본문 (description 에 Quill 델타를 JSON 으로 저장)
+ *   PHOTO   - 이미지 갤러리 (images, description)
+ *   ARTICLE - 리치 텍스트 본문 (articleContent)
  *   HTML    - 직접 작성한 HTML (htmlContent)
  *
  * images 를 EAGER 로 둔 것은 목록과 상세 어디서든 항상 함께 쓰이고,
@@ -37,8 +37,9 @@ public class Post {
     @Column(nullable = false)
     private String categoryId;
 
-    @Column(nullable = false)
-    private String contentType;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ContentType contentType;
 
     @Column(nullable = false)
     private String title;
@@ -54,8 +55,18 @@ public class Post {
 
     private String thumbnail;
 
+    /** PHOTO 의 평문 설명. ARTICLE 본문은 {@link #articleContent} 에 둡니다. */
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    /**
+     * ARTICLE 본문. Quill 에디터의 델타를 JSON 문자열로 저장합니다.
+     *
+     * 예전에는 description 하나가 형식에 따라 평문이거나 JSON 이었습니다.
+     * 읽는 쪽이 매번 파싱을 시도해 보고 실패하면 평문으로 취급해야 했습니다.
+     */
+    @Column(name = "article_content", columnDefinition = "TEXT")
+    private String articleContent;
 
     @Column(name = "video_url")
     private String videoUrl;
