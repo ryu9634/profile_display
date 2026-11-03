@@ -49,7 +49,7 @@
 | 데이터베이스 | MariaDB |
 | 프론트엔드 | HTML / CSS / 순수 자바스크립트 |
 | 외부 라이브러리 | Quill.js (리치 텍스트), PDF.js (CV 렌더링) |
-| 인프라 | AWS EC2, Nginx, systemd, GitHub Actions |
+| 실행 환경 | 단일 JAR, 리버스 프록시 뒤에서 구동 |
 
 프론트엔드에 프레임워크를 쓰지 않은 것은 의도적인 선택입니다. 화면이 여섯 개
 남짓이고 상태도 단순해서, 빌드 도구를 들이는 비용이 얻는 것보다 컸습니다.
@@ -130,7 +130,7 @@ src/main/resources/static/
 
 **주소에 해시 라우팅을 쓴 것**
 
-서버 사이드 라우팅을 쓰면 Nginx 설정과 서버 코드를 함께 건드려야 합니다.
+서버 사이드 라우팅을 쓰면 프록시 설정과 서버 코드를 함께 건드려야 합니다.
 정적 파일 하나로 돌아가는 구조를 유지하면서 링크 공유와 뒤로가기를 얻으려고
 해시 라우팅을 선택했습니다.
 
@@ -160,35 +160,6 @@ mvn spring-boot:run
 
 ---
 
-## 배포
-
-### GitHub Actions
-
-`main` 브랜치에 push하면 자동 실행됩니다. 저장소 Settings → Secrets and variables →
-Actions 에 다음을 등록해야 합니다.
-
-| 이름 | 설명 |
-| --- | --- |
-| `EC2_HOST` | 서버 주소 |
-| `EC2_SSH_KEY` | SSH 개인키 전체 내용 |
-| `EC2_USER` | (선택) SSH 사용자, 기본값 `ubuntu` |
-
-빌드 → JAR 전송 → 기존 JAR 백업 → 서비스 재시작 → 헬스체크 순으로 진행합니다.
-
-> GitHub 러너에서 접속하려면 서버의 22번 포트가 열려 있어야 합니다.
-> 보안 그룹이 특정 IP만 허용하고 있으면 아래 로컬 스크립트를 쓰세요.
-
-### 로컬 스크립트
-
-```bash
-cp deploy.env.example deploy.env    # 서버 주소와 키 경로 입력 (git에 올라가지 않음)
-./deploy.sh
-```
-
-서버 설정 방법은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 를 참고하세요.
-
----
-
 ## 환경 변수
 
 운영 환경에서는 다음을 반드시 설정해야 합니다. 값이 없으면 애플리케이션이 뜨지 않습니다.
@@ -199,6 +170,7 @@ cp deploy.env.example deploy.env    # 서버 주소와 키 경로 입력 (git에
 | `ADMIN_USERNAME` | 관리자 계정 초기 아이디 |
 | `ADMIN_PASSWORD` | 관리자 계정 초기 비밀번호 |
 | `ADMIN_RESET_PASSWORD` | `true` 로 한 번 재시작하면 위 값으로 계정 초기화 (평소 `false`) |
+| `CORS_ALLOWED_ORIGINS` | 허용할 도메인 (쉼표로 구분). 같은 도메인에서만 쓰면 비워 둡니다 |
 
 관리자 계정은 최초 실행 시 위 값으로 만들어지고, 이후에는 관리자 페이지에서 변경한
 값이 DB에 저장됩니다.
@@ -215,12 +187,11 @@ cp deploy.env.example deploy.env    # 서버 주소와 키 경로 입력 (git에
   성공하면 카운터를 초기화합니다.
 - **세션 쿠키** `HttpOnly`, `SameSite=Lax` 를 적용하고, 운영에서는 `Secure` 를 켭니다.
 - **업로드** 확장자와 MIME 타입을 함께 검사하고, 저장 경로 밖으로 나가는 요청을 막습니다.
-  Nginx 가 직접 내보내는 업로드 파일에는 별도 CSP 를 붙여 SVG 안의 스크립트가
-  실행되지 않게 합니다.
+  업로드 파일을 리버스 프록시가 직접 내보내는 구성이라면, 그 경로에도 CSP 를 붙여
+  SVG 안의 스크립트가 실행되지 않게 해야 합니다.
 
-> 운영에서 세션 쿠키에 `Secure` 가 붙기 때문에 **HTTPS 가 필요합니다.**
+> 운영 프로파일(`prod`)은 세션 쿠키에 `Secure` 를 붙이므로 **HTTPS 가 필요합니다.**
 > 평문 HTTP 로 접속하면 로그인 상태가 유지되지 않습니다.
-> `deploy/nginx.conf` 에 HTTP → HTTPS 리다이렉트가 들어 있습니다.
 
 ---
 
