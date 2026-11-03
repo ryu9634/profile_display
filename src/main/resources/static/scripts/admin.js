@@ -804,11 +804,11 @@ async function editPost(postId) {
         if (post.contentType === 'PHOTO') {
             document.getElementById('post-description-text').value = post.description || '';
         } else if (post.contentType === 'ARTICLE') {
-            if (post.description && adminState.quillEditor) {
+            if (post.articleContent && adminState.quillEditor) {
                 try {
-                    adminState.quillEditor.setContents(JSON.parse(post.description), 'api');
+                    adminState.quillEditor.setContents(JSON.parse(post.articleContent), 'api');
                 } catch (e) {
-                    adminState.quillEditor.setText(post.description || '', 'api');
+                    adminState.quillEditor.setText(post.articleContent, 'api');
                 }
             }
         } else if (post.contentType === 'HTML') {
@@ -822,7 +822,8 @@ async function editPost(postId) {
         const images = (post.images || []).slice().sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         images.forEach(img => {
             addMediaInput({
-                imageUrl: img.imageUrl || '',
+                // 서버는 종류에 맞는 필드로 내려줍니다. 입력칸에는 그 값을 그대로 넣습니다.
+                value: (img.mediaType === 'VIDEO' ? img.videoUrl : img.fileName) || '',
                 imageDescription: img.imageDescription || '',
                 mediaType: img.mediaType || 'IMAGE',
                 showDescription: img.showDescription !== false,
@@ -832,11 +833,11 @@ async function editPost(postId) {
         });
 
         // 하위호환: 예전 데이터(썸네일만 있고 미디어 목록이 비어 있음)
-        if (post.contentType === 'PHOTO' && post.thumbnail && !images.some(i => i.imageUrl === post.thumbnail)) {
-            addMediaInput({ imageUrl: post.thumbnail, mediaType: 'IMAGE' }, true);
+        if (post.contentType === 'PHOTO' && post.thumbnail && !images.some(i => i.fileName === post.thumbnail)) {
+            addMediaInput({ value: post.thumbnail, mediaType: 'IMAGE' }, true);
         }
         if (post.videoUrl && !images.some(img => img.mediaType === 'VIDEO')) {
-            addMediaInput({ imageUrl: post.videoUrl, mediaType: 'VIDEO', showDescription: false, descriptionPosition: 'right' });
+            addMediaInput({ value: post.videoUrl, mediaType: 'VIDEO', showDescription: false, descriptionPosition: 'right' });
         }
 
         clearUnsaved();
@@ -1016,7 +1017,7 @@ function setupBulkImageUpload() {
         for (const file of files) {
             try {
                 const fileName = await uploadImage(file, { imageOnly: true });
-                addMediaInput({ imageUrl: fileName, mediaType: 'IMAGE' });
+                addMediaInput({ value: fileName, mediaType: 'IMAGE' });
                 ok++;
             } catch (error) {
                 showToast(`${file.name}: ${error.message}`, 'error');
@@ -1034,7 +1035,7 @@ function setupBulkImageUpload() {
 // ============================
 function addMediaInput(options = {}, prepend = false) {
     const {
-        imageUrl = '',
+        value = '',
         imageDescription = '',
         mediaType = 'IMAGE',
         showDescription = true,
@@ -1071,8 +1072,8 @@ function addMediaInput(options = {}, prepend = false) {
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = 'additional-image-url';
-    input.value = imageUrl;
+    input.className = 'additional-image-value';
+    input.value = value;
     input.style.flex = '1';
 
     if (mediaType === 'VIDEO') {
@@ -1103,7 +1104,7 @@ function addMediaInput(options = {}, prepend = false) {
         selectBtn = document.createElement('button');
         selectBtn.type = 'button';
         selectBtn.className = 'btn btn-secondary btn-sm';
-        selectBtn.textContent = imageUrl ? '교체' : '파일 선택';
+        selectBtn.textContent = value ? '교체' : '파일 선택';
         selectBtn.onclick = () => fileInput.click();
 
         fileInput.onchange = async (e) => {
@@ -1211,10 +1212,10 @@ function addMediaInput(options = {}, prepend = false) {
     wrapper.appendChild(optionsRow);
     wrapper.appendChild(descInput);
 
-    if (mediaType === 'IMAGE' && imageUrl) {
-        showInlinePreview(wrapper, `${API_BASE_URL}/files/${encodeURIComponent(imageUrl)}`);
-    } else if (mediaType === 'VIDEO' && imageUrl) {
-        const videoId = extractYouTubeId(imageUrl);
+    if (mediaType === 'IMAGE' && value) {
+        showInlinePreview(wrapper, `${API_BASE_URL}/files/${encodeURIComponent(value)}`);
+    } else if (mediaType === 'VIDEO' && value) {
+        const videoId = extractYouTubeId(value);
         if (videoId) showInlinePreview(wrapper, `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`);
     }
 
@@ -1225,7 +1226,7 @@ function addMediaInput(options = {}, prepend = false) {
     }
 
     // 새로 추가한 IMAGE 항목은 바로 파일 선택창을 띄움
-    if (mediaType === 'IMAGE' && !imageUrl && fileInput && !prepend && Object.keys(options).length === 0) {
+    if (mediaType === 'IMAGE' && !value && fileInput && !prepend && Object.keys(options).length === 0) {
         fileInput.click();
     }
 }
@@ -1276,16 +1277,22 @@ function removeInlinePreview(container) {
 // ============================
 function collectMediaEntries() {
     return Array.from(document.querySelectorAll('#additional-images .image-entry'))
-        .map((entry, index) => ({
-            imageUrl: entry.querySelector('.additional-image-url').value.trim(),
-            imageDescription: entry.querySelector('.additional-image-desc')?.value || '',
-            displayOrder: index,
-            mediaType: entry.dataset.mediaType || 'IMAGE',
-            showDescription: entry.querySelector('.show-description-check')?.checked ?? true,
-            showImageDescription: entry.querySelector('.show-image-description-check')?.checked ?? false,
-            descriptionPosition: entry.querySelector('.description-position-select')?.value || 'right'
-        }))
-        .filter(img => img.imageUrl !== '');
+        .map((entry, index) => {
+            const mediaType = entry.dataset.mediaType || 'IMAGE';
+            const value = entry.querySelector('.additional-image-value').value.trim();
+            return {
+                mediaType,
+                // 서버는 종류에 맞는 필드만 받습니다.
+                fileName: mediaType === 'VIDEO' ? null : value,
+                videoUrl: mediaType === 'VIDEO' ? value : null,
+                imageDescription: entry.querySelector('.additional-image-desc')?.value || '',
+                displayOrder: index,
+                showDescription: entry.querySelector('.show-description-check')?.checked ?? true,
+                showImageDescription: entry.querySelector('.show-image-description-check')?.checked ?? false,
+                descriptionPosition: entry.querySelector('.description-position-select')?.value || 'right'
+            };
+        })
+        .filter(m => (m.mediaType === 'VIDEO' ? m.videoUrl : m.fileName));
 }
 
 async function handleSavePost(event) {
@@ -1334,7 +1341,7 @@ async function handleSavePost(event) {
         };
 
         const mediaEntries = collectMediaEntries();
-        const badVideo = mediaEntries.find(e => e.mediaType === 'VIDEO' && !extractYouTubeId(e.imageUrl));
+        const badVideo = mediaEntries.find(e => e.mediaType === 'VIDEO' && !extractYouTubeId(e.videoUrl));
         if (badVideo) {
             showToast('YouTube 주소 형식이 올바르지 않은 영상 항목이 있습니다.', 'warning');
             return;
@@ -1345,7 +1352,7 @@ async function handleSavePost(event) {
             postData.images = mediaEntries;
             // 대표 이미지 = 미디어 목록의 첫 번째 이미지
             const firstImage = mediaEntries.find(e => e.mediaType === 'IMAGE');
-            postData.thumbnail = firstImage ? firstImage.imageUrl : null;
+            postData.thumbnail = firstImage ? firstImage.fileName : null;
             if (!firstImage) {
                 const ok = await showConfirm('이미지가 하나도 없습니다. 목록에는 빈 칸으로 표시됩니다. 그래도 저장할까요?', '저장', false);
                 if (!ok) return;
@@ -1356,7 +1363,7 @@ async function handleSavePost(event) {
                 return;
             }
             postData.thumbnail = document.getElementById('post-thumbnail').value || null;
-            postData.description = JSON.stringify(adminState.quillEditor.getContents());
+            postData.articleContent = JSON.stringify(adminState.quillEditor.getContents());
             postData.images = mediaEntries;
         } else if (contentType === 'HTML') {
             postData.htmlContent = document.getElementById('post-html-content').value;

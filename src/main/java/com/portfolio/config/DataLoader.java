@@ -7,11 +7,13 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
+@Order(2)   // LegacyDataMigration 이 기존 데이터를 정리한 뒤 실행합니다
 @RequiredArgsConstructor
 public class DataLoader implements CommandLineRunner {
 

@@ -1,6 +1,8 @@
 package com.portfolio.service;
 
 import com.portfolio.dto.PostRequest;
+import com.portfolio.model.ContentType;
+import com.portfolio.model.MediaType;
 import com.portfolio.model.Post;
 import com.portfolio.model.PostImage;
 import com.portfolio.repository.PostRepository;
@@ -46,7 +48,7 @@ class PostServiceTest {
         existing = new Post();
         existing.setId(1L);
         existing.setCategoryId("artwork");
-        existing.setContentType("PHOTO");
+        existing.setContentType(ContentType.PHOTO);
         existing.setTitle("기존 작품");
         existing.setThumbnail("a.jpg");
         existing.setImages(new ArrayList<>(Arrays.asList(image("a.jpg"), image("b.jpg"))));
@@ -54,22 +56,22 @@ class PostServiceTest {
 
     private static PostImage image(String fileName) {
         PostImage img = new PostImage();
-        img.setImageUrl(fileName);
-        img.setMediaType("IMAGE");
+        img.setFileName(fileName);
+        img.setMediaType(MediaType.IMAGE);
         return img;
     }
 
     private static PostImage video(String url) {
         PostImage v = new PostImage();
-        v.setImageUrl(url);
-        v.setMediaType("VIDEO");
+        v.setVideoUrl(url);
+        v.setMediaType(MediaType.VIDEO);
         return v;
     }
 
     private static PostRequest request(String thumbnail, PostImage... images) {
         PostRequest r = new PostRequest();
         r.setCategoryId("artwork");
-        r.setContentType("PHOTO");
+        r.setContentType(ContentType.PHOTO);
         r.setTitle("기존 작품");
         r.setThumbnail(thumbnail);
         r.setImages(new ArrayList<>(Arrays.asList(images)));
