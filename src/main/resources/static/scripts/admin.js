@@ -492,7 +492,7 @@ async function renderPostsGrid(useCache = false) {
                     <h3 class="post-card-title">${escapeHtml(post.title)}</h3>
                     <p class="post-card-details">${metaLine(post) || '&nbsp;'}</p>
                     <div class="post-card-actions">
-                        <a class="btn btn-secondary btn-sm" href="/#/${encodeURIComponent(post.categoryId)}/${post.id}" target="_blank" rel="noopener" title="사이트에서 보기">보기</a>
+                        <a class="btn btn-secondary btn-sm" href="/${encodeURIComponent(post.categoryId)}/${post.id}" target="_blank" rel="noopener" title="사이트에서 보기">보기</a>
                         <button type="button" class="btn btn-secondary btn-sm" data-action="edit">수정</button>
                         <button type="button" class="btn btn-danger btn-sm" data-action="delete">삭제</button>
                     </div>

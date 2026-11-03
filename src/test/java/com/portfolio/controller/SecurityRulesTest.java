@@ -48,6 +48,28 @@ class SecurityRulesTest {
         mockMvc.perform(get("/api/health")).andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("작품 주소와 크롤러용 파일은 로그인 없이 열린다")
+    void publicPagesAreOpen() throws Exception {
+        mockMvc.perform(get("/")).andExpect(status().isOk());
+        mockMvc.perform(get("/artwork")).andExpect(status().isOk());
+        mockMvc.perform(get("/artwork/1")).andExpect(status().isOk());
+        mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk());
+        mockMvc.perform(get("/robots.txt")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("화면 주소를 열어 준 규칙이 관리자 경로까지 열지는 않는다")
+    void publicPageRuleDoesNotOpenAdminPaths() throws Exception {
+        // /admin 도 /{카테고리} 형태와 모양이 같으므로, 공개 규칙의 범위를 못박아 둡니다.
+        mockMvc.perform(get("/admin").accept(MediaType.TEXT_HTML))
+                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/admin.html").accept(MediaType.TEXT_HTML))
+                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/api/account/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── 인증 ────────────────────────────────────────────────────
 
     @Test

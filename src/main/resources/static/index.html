@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio</title>
+    <!--
+      아래 SEO 구간은 서버(PublicPageController)가 화면에 맞는 메타 태그로 바꿔 끼웁니다.
+      마커를 지우면 교체가 일어나지 않고 이 기본값이 그대로 나갑니다.
+      (/index.html 로 직접 열었을 때도 깨지지 않도록 기본값을 남겨 둡니다)
+    -->
+    <!--SEO:start--><title>Portfolio</title>
     <meta name="description" content="Artist portfolio - works, exhibitions and CV.">
     <meta property="og:title" content="Portfolio">
     <meta property="og:description" content="Artist portfolio - works, exhibitions and CV.">
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="website"><!--SEO:end-->
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2032%2032%22%3E%3Crect%20width=%2232%22%20height=%2232%22%20rx=%227%22%20fill=%22%23111111%22/%3E%3Ccircle%20cx=%2216%22%20cy=%2216%22%20r=%227%22%20fill=%22%23f5f5f5%22/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles/main.css?v=6">
+    <link rel="stylesheet" href="/styles/main.css?v=7">
     <!-- Quill.js / PDF.js는 필요한 화면에서만 지연 로드됩니다 (scripts/main.js) -->
 </head>
 <body>
@@ -35,6 +40,6 @@
 
     <button id="back-to-top" class="back-to-top" aria-label="Back to top">&#8593;</button>
 
-    <script src="scripts/main.js?v=6"></script>
+    <script src="/scripts/main.js?v=7"></script>
 </body>
 </html>

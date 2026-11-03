@@ -5,8 +5,10 @@
  * 서버는 JSON 만 내려주고, 화면 구성은 전부 여기서 합니다.
  *
  * 구조
- *   - 해시 라우팅: #/카테고리, #/카테고리/게시글ID
- *                  주소가 바뀌므로 새로고침, 뒤로가기, 링크 공유가 됩니다.
+ *   - 라우팅:      /카테고리, /카테고리/게시글ID (History API)
+ *                  서버가 같은 주소로 index.html 을 내려주고, 그 응답의 head 에는
+ *                  해당 작품의 메타 태그가 이미 들어 있습니다. 덕분에 링크를 공유하면
+ *                  미리보기에 작품이 나오고 검색 엔진도 작품별로 색인할 수 있습니다.
  *   - 사이트 설정: 색상, 폰트, 로고 등을 서버에서 받아 CSS 변수로 주입합니다.
  *   - 상세 팝업:   이미지와 영상을 한 화면에서 전환하고, 작품 간 이동을 지원합니다.
  *
@@ -60,7 +62,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupBackToTop();
     setupGlobalKeyboard();
-    window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('popstate', handleRoute);
+    // 이미 열려 있는 화면에서 예전 주소로 이동하면 해시만 바뀌어 페이지가 다시 열리지
+    // 않습니다. 그 경우에도 새 주소로 넘겨 줍니다. (#page-content 같은 앵커는 제외)
+    window.addEventListener('hashchange', () => {
+        if (migrateLegacyHash()) handleRoute();
+    });
+    migrateLegacyHash();
     handleRoute();
 });
 
@@ -70,25 +78,75 @@ function markReady() {
 }
 
 // ============================
-// 라우팅 (#/카테고리, #/카테고리/게시글ID)
-// 주소가 바뀌므로 새로고침·뒤로가기·링크 공유가 가능합니다
+// 라우팅 (/카테고리, /카테고리/게시글ID)
 // ============================
-function parseHash() {
-    const raw = (location.hash || '').replace(/^#\/?/, '');
-    if (!raw) return { page: 'main', postId: null };
-    const [page, postId] = raw.split('/');
+//
+// 해시(#/artwork/12) 대신 실제 경로를 씁니다. 해시는 서버로 전송되지 않아
+// 어떤 작품을 공유해도 서버가 같은 메타 태그만 내려줄 수 있었습니다.
+// 지금은 서버가 주소를 보고 작품별 메타 태그를 심어 줍니다.
+//
+// 모든 경로에서 index.html 이 나오도록 하는 일은 PublicPageController 가 합니다.
+
+function parseRoute() {
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return { page: 'main', postId: null };
+    const postId = segments[1] ? parseInt(segments[1], 10) : NaN;
     return {
-        page: decodeURIComponent(page || 'main'),
-        postId: postId ? parseInt(postId, 10) : null
+        page: safeDecode(segments[0]),
+        postId: Number.isFinite(postId) ? postId : null
     };
 }
 
+function routePath(page, postId) {
+    if (!page || page === 'main') return '/';
+    const base = `/${encodeURIComponent(page)}`;
+    return postId ? `${base}/${postId}` : base;
+}
+
+function safeDecode(value) {
+    try {
+        return decodeURIComponent(value);
+    } catch (e) {
+        return value;
+    }
+}
+
+// 예전 주소(#/artwork/12)로 들어온 방문자를 새 주소로 넘깁니다.
+// 이미 공유된 링크와 북마크가 있으므로 당장 지울 수 없습니다.
+// 바꿀 주소가 있었으면 true 를 돌려줍니다.
+function migrateLegacyHash() {
+    const hash = location.hash || '';
+    if (!hash.startsWith('#/')) return false;
+    const [page, postId] = hash.slice(2).split('/');
+    const parsed = postId ? parseInt(postId, 10) : NaN;
+    history.replaceState(null, '', routePath(safeDecode(page || 'main'),
+        Number.isFinite(parsed) ? parsed : null));
+    return true;
+}
+
+// 화면 안의 링크를 새로고침 없이 처리합니다 (data-route 가 붙은 링크만)
+function navigate(path) {
+    if (path === location.pathname) {
+        // 이미 그 화면이면 히스토리를 쌓지 않고 맨 위로만 올립니다
+        if (!appState.modal) window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+    history.pushState(null, '', path);
+    handleRoute();
+}
+
 async function handleRoute() {
-    const { page, postId } = parseHash();
+    const { page, postId } = parseRoute();
     const known = page === 'main' || appState.categories.some(c => c.id === page);
     const targetPage = known ? page : 'main';
 
-    // 이미 해당 카테고리 화면에 있었다면 이번 해시 변경은 사용자의 클릭(브라우저가 히스토리를 쌓음)
+    // 없는 카테고리 주소는 메인으로 보여주면서 주소도 정리합니다.
+    // 그대로 두면 잘못된 주소가 공유되거나 검색 결과에 남습니다.
+    if (!known) {
+        history.replaceState(null, '', routePath(targetPage));
+    }
+
+    // 이미 해당 카테고리 화면에 있었다면 이번 주소 변경은 사용자의 클릭(navigate 가 히스토리를 쌓음)
     const alreadyOnPage = targetPage === appState.currentPage;
 
     if (!alreadyOnPage) {
@@ -107,12 +165,32 @@ async function handleRoute() {
             return;
         }
         // 존재하지 않는 게시글이면 주소만 정리
-        history.replaceState(null, '', `#/${encodeURIComponent(targetPage)}`);
+        history.replaceState(null, '', routePath(targetPage));
     }
 
     if (appState.modal) {
         closePostDetail(false);
     }
+    updateDocumentTitle();
+}
+
+/**
+ * 탭 제목을 현재 화면에 맞춥니다.
+ *
+ * 서버가 첫 응답에 넣어 준 제목과 같은 형식을 씁니다. 화면을 이동할 때는
+ * 새 응답을 받지 않으므로 여기서 직접 맞춰 주어야 합니다.
+ */
+function updateDocumentTitle() {
+    const siteTitle = appState.siteTitle || 'Portfolio';
+    const post = appState.modalPosts[appState.modalIndex];
+    if (post) {
+        document.title = `${post.title} · ${siteTitle}`;
+        return;
+    }
+    const category = appState.categories.find(c => c.id === appState.currentPage);
+    document.title = category && category.id !== 'main'
+        ? `${category.name} · ${siteTitle}`
+        : (appState.settings.siteSubtitle || siteTitle);
 }
 
 // ============================
@@ -152,13 +230,8 @@ function applySiteSettings(s) {
         }
     }
 
-    // 브라우저 탭 제목 및 공유용 메타
-    const tabTitle = s.siteSubtitle || s.siteTitle;
-    if (tabTitle) {
-        document.title = tabTitle;
-        const og = document.querySelector('meta[property="og:title"]');
-        if (og) og.setAttribute('content', tabTitle);
-    }
+    // 탭 제목은 화면이 바뀔 때마다 updateDocumentTitle() 이 맞춥니다.
+    // 서버가 첫 응답에 작품 제목을 넣어 주므로 여기서 덮어쓰면 안 됩니다.
 
     // 파비콘
     if (s.favicon) {
@@ -263,7 +336,8 @@ function renderSidebar() {
         const li = document.createElement('li');
         const btn = document.createElement('a');
         btn.className = 'nav-link nav-home';
-        btn.href = '#/';
+        btn.href = routePath('main');
+        btn.setAttribute('data-route', '');
         btn.setAttribute('data-page', 'main');
 
         if (appState.logoImage) {
@@ -287,7 +361,8 @@ function renderSidebar() {
         const li = document.createElement('li');
         const btn = document.createElement('a');
         btn.className = 'nav-link';
-        btn.href = `#/${encodeURIComponent(category.id)}`;
+        btn.href = routePath(category.id);
+        btn.setAttribute('data-route', '');
         btn.textContent = category.name;
         btn.setAttribute('data-page', category.id);
         li.appendChild(btn);
@@ -372,14 +447,18 @@ function updateActiveNav() {
 }
 
 function setupNavigation() {
-    // 링크(href="#/...")의 기본 동작이 곧 라우팅이므로 별도 처리가 필요 없습니다.
-    // 이미 열려 있는 페이지를 다시 누르면 맨 위로 스크롤합니다.
-    document.querySelector('.nav-menu').addEventListener('click', (e) => {
-        const link = e.target.closest('.nav-link');
-        if (!link) return;
-        if (link.getAttribute('data-page') === appState.currentPage && !appState.modal) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+    // data-route 가 붙은 링크만 가로챕니다.
+    // 업로드 파일이나 외부 링크(PDF 원본, 소셜 링크)는 평소처럼 동작해야 합니다.
+    document.addEventListener('click', (e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+            return;
         }
+        const link = e.target.closest('a[data-route]');
+        if (!link) return;
+        if (link.target && link.target !== '_self') return;
+
+        e.preventDefault();
+        navigate(link.getAttribute('href'));
     });
 }
 
@@ -469,7 +548,7 @@ async function renderMainPage(container) {
         if (!title && !intro) {
             const first = appState.categories.find(c => c.id !== 'main');
             if (first) {
-                recentEl.innerHTML = `<div class="empty-state"><a class="retry-btn" href="#/${encodeURIComponent(first.id)}">${escapeHtml(first.name)} 보기</a></div>`;
+                recentEl.innerHTML = `<div class="empty-state"><a class="retry-btn" data-route href="${routePath(first.id)}">${escapeHtml(first.name)} 보기</a></div>`;
             }
         }
         return;
@@ -479,7 +558,7 @@ async function renderMainPage(container) {
         <h2 class="main-recent-title">Recent works</h2>
         <div class="highlight-grid">
             ${recent.map(post => `
-                <a class="highlight-item" href="#/${encodeURIComponent(post.categoryId)}/${post.id}">
+                <a class="highlight-item" data-route href="${routePath(post.categoryId, post.id)}">
                     <div class="highlight-image">${imageTag(post.thumbnail, post.title)}</div>
                     <div class="highlight-caption">
                         <span class="highlight-title">${escapeHtml(post.title)}</span>
@@ -550,7 +629,7 @@ function renderPostsPage(container, posts, categoryId) {
                 ${posts.length === 0
                     ? '<div class="empty-state"><p>No works have been added yet.</p></div>'
                     : posts.map((post, index) => `
-                        <a class="artwork-item" href="#/${encodeURIComponent(categoryId)}/${post.id}" data-index="${index}">
+                        <a class="artwork-item" data-route href="${routePath(categoryId, post.id)}" data-index="${index}">
                             <div class="artwork-image-placeholder ${post.thumbnail ? 'has-image' : ''}">
                                 ${post.thumbnail && !post.thumbnail.toLowerCase().endsWith('.pdf')
                                     ? imageTag(post.thumbnail, post.title)
@@ -601,10 +680,11 @@ function showPostAt(index) {
     appState.modalIndex = index;
 
     // 주소 동기화 (이전/다음 이동은 히스토리를 쌓지 않음)
-    const wanted = `#/${encodeURIComponent(post.categoryId)}/${post.id}`;
-    if (location.hash !== wanted) {
+    const wanted = routePath(post.categoryId, post.id);
+    if (location.pathname !== wanted) {
         history.replaceState(null, '', wanted);
     }
+    updateDocumentTitle();
 
     const modal = appState.modal;
     modal.setAttribute('aria-label', post.title || 'Detail');
@@ -659,13 +739,14 @@ function closePostDetail(updateHistory) {
 
     if (updateHistory) {
         if (appState.modalPushedHistory && history.length > 1) {
-            // 우리가 쌓은 히스토리면 뒤로가기로 정리 → hashchange가 처리
+            // 우리가 쌓은 히스토리면 뒤로가기로 정리 → popstate 가 처리
             history.back();
         } else {
-            history.replaceState(null, '', `#/${encodeURIComponent(appState.currentPage || '')}`);
+            history.replaceState(null, '', routePath(appState.currentPage));
         }
     }
     appState.modalPushedHistory = false;
+    updateDocumentTitle();
 
     if (appState.lastFocused && document.body.contains(appState.lastFocused)) {
         appState.lastFocused.focus({ preventScroll: true });
